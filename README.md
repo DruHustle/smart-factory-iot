@@ -49,7 +49,7 @@ The application is built on a modern technology stack, featuring a React-based f
 
     ```bash
     git clone <repository-url>
-    cd smart-factory-iot-dashboard
+    cd smart-factory-iot
     ```
 
 2.  **Install dependencies:**
