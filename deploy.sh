@@ -115,7 +115,14 @@ TEMP_DIR=$(mktemp -d)
 trap "rm -rf $TEMP_DIR" EXIT
 
 # Copy dist contents to temporary directory
-cp -r dist/* "$TEMP_DIR/"
+if [ -d "dist/public" ]; then
+    cp -r dist/public/* "$TEMP_DIR/"
+elif [ -d "dist" ]; then
+    cp -r dist/* "$TEMP_DIR/"
+else
+    echo "❌ Build output not found: neither dist/public nor dist directory exists."
+    exit 1
+fi
 
 # Switch to gh-pages branch
 git checkout gh-pages
