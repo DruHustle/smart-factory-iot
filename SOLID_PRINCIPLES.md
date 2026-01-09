@@ -5,13 +5,9 @@
 **Author**: Andrew Gotora (andrewgotora@yahoo.com)  
 **Last Updated**: January 9, 2026
 
----
-
 ## Overview
 
 This document demonstrates how SOLID principles are exemplarily implemented throughout the Smart Factory IoT Dashboard. The application serves as a reference implementation for clean architecture in full-stack TypeScript applications.
-
----
 
 ## Single Responsibility Principle (SRP)
 
@@ -44,8 +40,6 @@ The Smart Factory IoT Dashboard achieves exceptional SRP compliance through clea
 - Each component renders specific UI elements
 - Business logic delegated to services
 - State management isolated in hooks
-
----
 
 ## Open/Closed Principle (OCP)
 
@@ -97,8 +91,6 @@ type GroupType = 'zone' | 'production-line' | 'department' | 'custom';
 // New types can be added without modifying existing logic
 ```
 
----
-
 ## Liskov Substitution Principle (LSP)
 
 **Definition**: Derived classes must be substitutable for their base classes.
@@ -130,8 +122,6 @@ const devices = await db.select().from(devicesTable);
 const groups = await db.select().from(groupsTable);
 const alerts = await db.select().from(alertsTable);
 ```
-
----
 
 ## Interface Segregation Principle (ISP)
 
@@ -180,8 +170,6 @@ interface GroupAnalytics {
 ```
 
 **No Fat Interfaces**: Each interface exposes only methods relevant to its clients.
-
----
 
 ## Dependency Inversion Principle (DIP)
 
@@ -240,8 +228,6 @@ interface WebSocketBroadcaster {
 // Implementation can be swapped (ws, socket.io, etc.)
 ```
 
----
-
 ## Architecture Diagram
 
 ```
@@ -261,7 +247,7 @@ interface WebSocketBroadcaster {
                     └────────┬────────┘
                              │
 ┌────────────────────────────┼────────────────────────────────┐
-│                      Backend (Node.js)                       │
+│                      Backend (Node.js + .NET)                       │
 │                             │                                │
 │  ┌──────────────────────────▼──────────────────────────┐   │
 │  │              API Routes (Express)                    │   │

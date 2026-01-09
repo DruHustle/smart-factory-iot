@@ -1,10 +1,12 @@
 # Google Maps Configuration Guide
 
-This guide explains how to configure Google Maps API for the Smart Factory IoT Dashboard.
+**Version:** 2.0.0
+**Author:** Andrew Gotora
+**Email:** [andrewgotora@yahoo.com](mailto:andrewgotora@yahoo.com)
+**Last Updated**: January 9, 2026
 
 ## Overview
-
-The application uses Google Maps through a proxy service for enhanced security and rate limiting. This architecture provides:
+This guide explains how to configure Google Maps API for the Smart Factory IoT Dashboard. The application uses Google Maps through a proxy service for enhanced security and rate limiting. This architecture provides:
 
 - **Security**: API keys are not exposed to the client
 - **Rate Limiting**: Centralized control over API usage
