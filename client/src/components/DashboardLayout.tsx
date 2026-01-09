@@ -32,7 +32,6 @@ import {
   BarChart3,
   Download,
   Factory,
-  ArrowLeft,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -227,22 +226,7 @@ function DashboardLayoutContent({
           </SidebarContent>
 
           <SidebarFooter className="p-3 border-t border-sidebar-border space-y-2">
-            {(() => {
-              if (typeof window === 'undefined') return null;
-              const referrer = document.referrer;
-              const showBackButton = referrer.includes('druhustle.github.io/portfolio');
-              return showBackButton ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.history.back()}
-                  className="w-full justify-center text-xs"
-                >
-                  <ArrowLeft className="h-3 w-3 mr-1" />
-                  Back to Project
-                </Button>
-              ) : null;
-            })()}
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-sidebar-accent transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
