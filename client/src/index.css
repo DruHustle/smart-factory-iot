@@ -93,9 +93,9 @@
   --success: oklch(0.55 0.18 145);
   --success-foreground: oklch(0.98 0 0);
   
-  /* Warning - Orange */
-  --warning: oklch(0.7 0.18 55);
-  --warning-foreground: oklch(0.15 0.01 55);
+  /* Warning - Muted Orange with better contrast for eye comfort */
+  --warning: oklch(0.60 0.10 55);
+  --warning-foreground: oklch(0.98 0.01 55);
   
   /* Borders and inputs */
   --border: oklch(0.95 0.02 260);
@@ -133,8 +133,8 @@
   --destructive-foreground: oklch(0.95 0.02 260);
   --success: oklch(0.55 0.18 145);
   --success-foreground: oklch(0.98 0 0);
-  --warning: oklch(0.7 0.18 55);
-  --warning-foreground: oklch(0.15 0.01 55);
+  --warning: oklch(0.60 0.10 55);
+  --warning-foreground: oklch(0.98 0.01 55);
   --border: oklch(0.95 0.02 260);
   --input: oklch(0.95 0.02 260 / 0.1);
   --ring: oklch(0.72 0.15 200);

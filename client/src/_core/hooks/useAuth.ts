@@ -43,7 +43,7 @@ export function useAuth(options?: UseAuthOptions) {
 
   const state = useMemo(() => {
     localStorage.setItem(
-      "manus-runtime-user-info",
+      "app-user-info",
       JSON.stringify(meQuery.data)
     );
     return {
