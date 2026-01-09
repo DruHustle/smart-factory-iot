@@ -3,13 +3,11 @@
 **Version:** 2.0.0  
 **Author:** Andrew Gotora  
 **Email:** [andrewgotora@yahoo.com](mailto:andrewgotora@yahoo.com)  
-**Live Dashboard:** [https://druhustle.github.io/smart-factory-iot/](https://druhustle.github.io/smart-factory-iot/)
 
 ## 🚀 Quick Links
 
-- **[Live Dashboard](https://druhustle.github.io/smart-factory-iot/)** - Access the deployed application
+- **[Live Demo](https://druhustle.github.io/smart-factory-iot/coming-soon.html)** - View the live demo (coming soon)
 - **[GitHub Repository](https://github.com/DruHustle/smart-factory-iot)** - View source code
-- **[Documentation](https://github.com/DruHustle/smart-factory-iot/tree/main)** - Full project documentation
 - **[Issues](https://github.com/DruHustle/smart-factory-iot/issues)** - Report bugs or request features
 
 ## Project Overview
@@ -42,13 +40,14 @@ The application is built on a modern technology stack, featuring a React-based f
 - Node.js (v18 or later)
 - pnpm (recommended) or npm
 - A running MySQL database instance
+- A local OAuth server (see instructions below)
 
 ### Installation
 
 1.  **Clone the repository:**
 
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/DruHustle/smart-factory-iot.git
     cd smart-factory-iot
     ```
 
@@ -60,15 +59,41 @@ The application is built on a modern technology stack, featuring a React-based f
 
 3.  **Configure environment variables:**
 
-    Create a `.env` file in the root of the project and add the following:
+    Copy the example environment file and update it with your configuration:
+
+    ```bash
+    cp .env.example .env
+    ```
+
+    See the `.env.example` file for a complete list of variables and their descriptions.
+
+### OAuth Server Setup
+
+This application requires an OAuth 2.0 server for user authentication. For local development, you can use a mock OAuth server.
+
+1.  **Start the OAuth Server:**
+
+    A mock OAuth server is included in the repository. To start it, run:
+
+    ```bash
+    # In a separate terminal
+    pnpm run oauth:server
+    ```
+
+    This will start a mock server on `http://localhost:8080`.
+
+2.  **Configure OAuth in `.env`:**
+
+    Ensure your `.env` file has the correct OAuth server URL:
 
     ```
-    DATABASE_URL="mysql://user:password@host:port/database"
-    PORT=3000
-    # Optional: For notification services
-    EMAIL_API_KEY="your-email-api-key"
-    SMS_API_KEY="your-sms-api-key"
+    OAUTH_SERVER_URL="http://localhost:8080"
+    VITE_OAUTH_PORTAL_URL="http://localhost:8080"
     ```
+
+### Google Maps Configuration
+
+For detailed instructions on configuring Google Maps, please see the [Google Maps Setup Guide](./GOOGLE_MAPS_SETUP.md).
 
 ### Running the Application
 
@@ -86,6 +111,44 @@ The application is built on a modern technology stack, featuring a React-based f
     pnpm build
     pnpm start
     ```
+
+## Deployment
+
+### GitHub Pages
+
+For a simple static deployment, you can use the included `coming-soon.html` page.
+
+1.  **Push to `gh-pages` branch:**
+
+    ```bash
+    git checkout -b gh-pages
+    git add client/public/coming-soon.html
+    git commit -m "Add coming soon page"
+    git push origin gh-pages
+    ```
+
+2.  **Configure GitHub Pages:**
+
+    In your repository settings, configure GitHub Pages to deploy from the `gh-pages` branch.
+
+### Production Deployment
+
+For a full production deployment, you will need:
+
+- A production-ready MySQL database
+- A production OAuth server
+- A server to host the Node.js backend
+- A CDN to serve the frontend assets
+
+## SOLID Principles
+
+This project has been refactored to adhere to SOLID principles:
+
+- **Single Responsibility Principle:** Each module and component has a single, well-defined responsibility.
+- **Open/Closed Principle:** The application is designed to be extensible without modifying existing code.
+- **Liskov Substitution Principle:** All components are designed to be interchangeable with their base types.
+- **Interface Segregation Principle:** Interfaces are small and focused, providing only the necessary functionality.
+- **Dependency Inversion Principle:** High-level modules do not depend on low-level modules; both depend on abstractions.
 
 ## Project Structure
 

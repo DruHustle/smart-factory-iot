@@ -1,30 +1,50 @@
 /**
- * Google Maps API Integration for Manus WebDev Templates
+ * Google Maps API Integration Service
  * 
- * Main function: makeRequest<T>(endpoint, params) - Makes authenticated requests to Google Maps APIs
+ * This module provides a type-safe interface to Google Maps APIs through a proxy.
+ * It follows SOLID principles:
+ * - Single Responsibility: Handles only Google Maps API communication
+ * - Open/Closed: Extensible for new API endpoints without modification
+ * - Liskov Substitution: Consistent error handling across all methods
+ * - Interface Segregation: Separate types for different API responses
+ * - Dependency Inversion: Configuration injected through ENV
+ * 
+ * Main function: makeRequest<T>(endpoint, params) - Makes authenticated requests
  * All credentials are automatically injected. Array parameters use | as separator.
- * 
- * See API examples below the type definitions for usage patterns.
  */
 
 import { ENV } from "./env";
 
 // ============================================================================
-// Configuration
+// Configuration Service
 // ============================================================================
 
-type MapsConfig = {
+/**
+ * Maps Configuration Interface
+ * Defines the contract for maps service configuration
+ */
+interface MapsConfig {
   baseUrl: string;
   apiKey: string;
-};
+}
 
+/**
+ * Configuration Validator
+ * Ensures all required environment variables are set
+ * Throws descriptive errors if configuration is incomplete
+ */
 function getMapsConfig(): MapsConfig {
   const baseUrl = ENV.forgeApiUrl;
   const apiKey = ENV.forgeApiKey;
 
   if (!baseUrl || !apiKey) {
+    const missingVars = [];
+    if (!baseUrl) missingVars.push("BUILT_IN_FORGE_API_URL");
+    if (!apiKey) missingVars.push("BUILT_IN_FORGE_API_KEY");
+    
     throw new Error(
-      "Google Maps proxy credentials missing: set BUILT_IN_FORGE_API_URL and BUILT_IN_FORGE_API_KEY"
+      `Google Maps proxy credentials missing. ` +
+      `Please set the following environment variables: ${missingVars.join(", ")}`
     );
   }
 
@@ -35,7 +55,7 @@ function getMapsConfig(): MapsConfig {
 }
 
 // ============================================================================
-// Core Request Handler
+// Request Handler
 // ============================================================================
 
 interface RequestOptions {
@@ -46,10 +66,23 @@ interface RequestOptions {
 /**
  * Make authenticated requests to Google Maps APIs
  * 
+ * This function handles:
+ * - URL construction with proper proxy path
+ * - API key authentication
+ * - Query parameter encoding
+ * - Error handling with descriptive messages
+ * 
  * @param endpoint - The API endpoint (e.g., "/maps/api/geocode/json")
  * @param params - Query parameters for the request
- * @param options - Additional request options
+ * @param options - Additional request options (method, body)
  * @returns The API response
+ * @throws Error if the request fails with details about the failure
+ * 
+ * @example
+ * const result = await makeRequest<GeocodingResult>(
+ *   "/maps/api/geocode/json",
+ *   { address: "New York" }
+ * );
  */
 export async function makeRequest<T = unknown>(
   endpoint: string,
@@ -64,29 +97,35 @@ export async function makeRequest<T = unknown>(
   // Add API key as query parameter (standard Google Maps API authentication)
   url.searchParams.append("key", apiKey);
 
-  // Add other query parameters
+  // Add other query parameters with proper encoding
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
       url.searchParams.append(key, String(value));
     }
   });
 
-  const response = await fetch(url.toString(), {
-    method: options.method || "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
+  try {
+    const response = await fetch(url.toString(), {
+      method: options.method || "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `Google Maps API request failed (${response.status} ${response.statusText}): ${errorText}`
-    );
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Google Maps API request failed (${response.status} ${response.statusText}): ${errorText}`
+      );
+    }
+
+    return (await response.json()) as T;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[Maps API Error]", message);
+    throw error;
   }
-
-  return (await response.json()) as T;
 }
 
 // ============================================================================
@@ -313,7 +352,3 @@ export type RoadsResult = {
  * Output: Image URL (not JSON) - use directly in <img src={url} />
  * Note: Construct URL manually with getMapsConfig() for auth
  */
-
-
-
-
