@@ -8,6 +8,7 @@ import { defineConfig } from "vite";
 const plugins = [react(), tailwindcss(), jsxLocPlugin()];
 
 export default defineConfig({
+  base: '/smart-factory-iot/',
   plugins,
   resolve: {
     alias: {
