@@ -1,8 +1,16 @@
 # Smart Factory IoT Dashboard
 
-**Version:** 2.0.0
-**Author:** Andrew Gotora
-**Email:** [andrewgotora@yahoo.com](mailto:andrewgotora@yahoo.com)
+**Version:** 2.0.0  
+**Author:** Andrew Gotora  
+**Email:** [andrewgotora@yahoo.com](mailto:andrewgotora@yahoo.com)  
+**Live Dashboard:** [https://druhustle.github.io/smart-factory-iot/](https://druhustle.github.io/smart-factory-iot/)
+
+## 🚀 Quick Links
+
+- **[Live Dashboard](https://druhustle.github.io/smart-factory-iot/)** - Access the deployed application
+- **[GitHub Repository](https://github.com/DruHustle/smart-factory-iot)** - View source code
+- **[Documentation](https://github.com/DruHustle/smart-factory-iot/tree/main)** - Full project documentation
+- **[Issues](https://github.com/DruHustle/smart-factory-iot/issues)** - Report bugs or request features
 
 ## Project Overview
 
