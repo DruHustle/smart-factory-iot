@@ -42,6 +42,15 @@ fi
 echo "📦 Installing dependencies..."
 pnpm install
 
+# Run tests
+echo "🧪 Running tests..."
+if pnpm test 2>/dev/null; then
+    echo "✅ All tests passed!"
+else
+    echo "❌ Tests failed. Aborting deployment."
+    exit 1
+fi
+
 # Build the project
 echo "🏗️ Building project..."
 pnpm build
