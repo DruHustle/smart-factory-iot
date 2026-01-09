@@ -124,8 +124,10 @@ git checkout gh-pages
 BACKUP_COMMIT=$(git rev-parse HEAD)
 
 # Clear old content and copy new content
-find . -maxdepth 1 -not -name '.git' -not -name '.gitignore' -exec rm -rf {} +
+find . -maxdepth 1 -type f -not -name '.gitignore' -delete
+find . -maxdepth 1 -type d -not -name '.git' -not -name '.' -exec rm -rf {} + 2>/dev/null || true
 cp -r "$TEMP_DIR"/* .
+cp -r "$TEMP_DIR"/.* . 2>/dev/null || true
 
 # Verify new content was copied
 if [ ! -f "index.html" ]; then
