@@ -214,20 +214,27 @@ export async function getSensorReadings(
   limit: number = 1000
 ): Promise<SensorReading[]> {
   const db = await getDb();
-  if (!db) return [];
+  if (!db) {
+    throw new Error("[Database] Connection unavailable for getSensorReadings");
+  }
 
-  return db
-    .select()
-    .from(sensorReadings)
-    .where(
-      and(
-        eq(sensorReadings.deviceId, deviceId),
-        gte(sensorReadings.timestamp, startTime),
-        lte(sensorReadings.timestamp, endTime)
+  try {
+    return db
+      .select()
+      .from(sensorReadings)
+      .where(
+        and(
+          eq(sensorReadings.deviceId, deviceId),
+          gte(sensorReadings.timestamp, startTime),
+          lte(sensorReadings.timestamp, endTime)
+        )
       )
-    )
-    .orderBy(asc(sensorReadings.timestamp))
-    .limit(limit);
+      .orderBy(asc(sensorReadings.timestamp))
+      .limit(limit);
+  } catch (error) {
+    console.error(`[Database] Failed to fetch sensor readings for device ${deviceId}:`, error);
+    throw error;
+  }
 }
 
 export async function getLatestReading(deviceId: number): Promise<SensorReading | undefined> {
@@ -257,9 +264,16 @@ export async function createAlertThreshold(threshold: InsertAlertThreshold): Pro
 
 export async function getAlertThresholds(deviceId: number): Promise<AlertThreshold[]> {
   const db = await getDb();
-  if (!db) return [];
+  if (!db) {
+    throw new Error("[Database] Connection unavailable for getAlertThresholds");
+  }
 
-  return db.select().from(alertThresholds).where(eq(alertThresholds.deviceId, deviceId));
+  try {
+    return db.select().from(alertThresholds).where(eq(alertThresholds.deviceId, deviceId));
+  } catch (error) {
+    console.error(`[Database] Failed to fetch alert thresholds for device ${deviceId}:`, error);
+    throw error;
+  }
 }
 
 export async function updateAlertThreshold(
@@ -315,26 +329,33 @@ export async function getAlerts(filters?: {
   limit?: number;
 }): Promise<Alert[]> {
   const db = await getDb();
-  if (!db) return [];
-
-  let query = db.select().from(alerts);
-  const conditions = [];
-
-  if (filters?.deviceId) {
-    conditions.push(eq(alerts.deviceId, filters.deviceId));
-  }
-  if (filters?.status) {
-    conditions.push(eq(alerts.status, filters.status));
-  }
-  if (filters?.severity) {
-    conditions.push(eq(alerts.severity, filters.severity));
+  if (!db) {
+    throw new Error("[Database] Connection unavailable for getAlerts");
   }
 
-  if (conditions.length > 0) {
-    query = query.where(and(...conditions)) as typeof query;
-  }
+  try {
+    let query = db.select().from(alerts);
+    const conditions = [];
 
-  return query.orderBy(desc(alerts.createdAt)).limit(filters?.limit ?? 100);
+    if (filters?.deviceId) {
+      conditions.push(eq(alerts.deviceId, filters.deviceId));
+    }
+    if (filters?.status) {
+      conditions.push(eq(alerts.status, filters.status));
+    }
+    if (filters?.severity) {
+      conditions.push(eq(alerts.severity, filters.severity));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as typeof query;
+    }
+
+    return query.orderBy(desc(alerts.createdAt)).limit(filters?.limit ?? 100);
+  } catch (error) {
+    console.error(`[Database] Failed to fetch alerts:`, error);
+    throw error;
+  }
 }
 
 export async function updateAlertStatus(
