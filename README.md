@@ -112,6 +112,462 @@ For detailed instructions on configuring Google Maps, please see the [Google Map
     pnpm start
     ```
 
+## Development Environment Setup
+
+### Quick Start with Development Database
+
+The fastest way to get started with development is to use the automated setup script:
+
+```bash
+# 1. Set up development database with sample data
+./setup-dev-db.sh
+
+# 2. Copy environment file
+cp .env.dev .env
+
+# 3. Install dependencies
+pnpm install
+
+# 4. Start development server
+pnpm dev
+```
+
+The development server will be available at `http://localhost:3000`.
+
+### Development Database Setup Script
+
+The `setup-dev-db.sh` script automates the entire development environment setup:
+
+```bash
+# Make script executable
+chmod +x setup-dev-db.sh
+
+# Run setup
+./setup-dev-db.sh
+```
+
+#### What the Script Does
+
+1. **Checks Prerequisites**
+   - Verifies MySQL installation
+   - Checks MySQL service status
+   - Starts MySQL if not running
+
+2. **Creates Database**
+   - Drops existing development database
+   - Creates fresh `smart_factory_dev` database
+   - Sets proper character set and collation
+
+3. **Creates Schema**
+   - Creates 7 tables with proper relationships
+   - Sets up indexes for performance
+   - Configures foreign keys
+
+4. **Inserts Sample Data**
+   - 3 development users (admin, operator, technician)
+   - 12 devices across multiple zones and production lines
+   - 8 sensor readings with time-series data
+   - 4 alert thresholds
+   - 3 alerts (open and resolved)
+   - 5 firmware versions
+   - 4 OTA deployments
+
+5. **Creates Configuration**
+   - Generates `.env.dev` file
+   - Sets up database connection string
+   - Configures development settings
+
+6. **Verifies Setup**
+   - Tests database connection
+   - Displays statistics
+   - Shows next steps
+
+#### Using Custom Database Credentials
+
+```bash
+# Set custom credentials before running setup
+export DB_HOST=localhost
+export DB_USER=devuser
+export DB_PASSWORD=devpass
+export DB_NAME=smart_factory_dev
+
+./setup-dev-db.sh
+```
+
+#### Development Sample Data
+
+The setup script includes comprehensive sample data:
+
+**Users:**
+- Admin: admin@dev.local
+- Operator: operator@dev.local
+- Technician: tech@dev.local
+
+**Devices:**
+- Production Line A: 5 devices (sensors, actuators, controllers)
+- Production Line B: 4 devices
+- Infrastructure: 2 gateways
+- Additional: 12 more devices for testing
+
+**Sensor Data:**
+- Time-series readings over the last hour
+- Temperature, humidity, pressure, vibration, power, RPM
+- Realistic values for manufacturing environment
+
+**Alerts:**
+- Temperature warnings
+- Vibration alerts
+- Device offline notifications
+- Various severity levels (info, warning, critical)
+
+### Adding More Development Data
+
+Use the seed script to add additional random data without resetting:
+
+```bash
+# Add random data to existing database
+node seed-dev-data.mjs
+
+# Reset database and reseed with fresh data
+node seed-dev-data.mjs --reset
+
+# Show help
+node seed-dev-data.mjs --help
+```
+
+#### What the Seed Script Does
+
+- Generates 20 additional devices
+- Creates 200+ sensor readings
+- Generates 50+ alerts
+- Adds firmware versions
+- Creates OTA deployment records
+- Displays final statistics
+
+### Development Environment File
+
+The `.env.dev` file contains development-specific configuration:
+
+```bash
+# Copy to .env for development
+cp .env.dev .env
+```
+
+**Key Settings:**
+- `NODE_ENV=development` - Development mode
+- `DATABASE_URL=mysql://root@localhost:3306/smart_factory_dev` - Dev database
+- `JWT_SECRET=dev-secret-key-change-in-production` - Development secret
+- `PORT=3000` - Development server port
+- `DEBUG=true` - Enable verbose logging
+- `CORS_ORIGINS=*` - Allow all origins for testing
+
+### Development Workflow
+
+```bash
+# 1. Initial setup (one time)
+./setup-dev-db.sh
+cp .env.dev .env
+pnpm install
+
+# 2. Start development server
+pnpm dev
+
+# 3. Open in browser
+# http://localhost:3000
+
+# 4. Make changes and see hot-reload
+# Edit files in client/src/ and server/
+
+# 5. Run tests during development
+pnpm test
+
+# 6. Type checking
+pnpm check
+
+# 7. Add more sample data
+node seed-dev-data.mjs
+
+# 8. Reset database if needed
+./setup-dev-db.sh
+```
+
+### Development Database Reset
+
+To reset the development database to initial state:
+
+```bash
+# Reset and reseed with initial data
+./setup-dev-db.sh
+
+# Or reset and add more data
+node seed-dev-data.mjs --reset
+```
+
+### Troubleshooting Development Setup
+
+**Issue: MySQL not running**
+```bash
+# Start MySQL service
+sudo service mysql start
+
+# Or with systemctl
+sudo systemctl start mysql
+```
+
+**Issue: Permission denied**
+```bash
+# Make scripts executable
+chmod +x setup-dev-db.sh
+chmod +x seed-dev-data.mjs
+```
+
+**Issue: Database connection refused**
+```bash
+# Check database URL in .env
+cat .env | grep DATABASE_URL
+
+# Verify MySQL is running
+mysql -u root -e "SELECT 1"
+```
+
+**Issue: Port already in use**
+```bash
+# Change port in .env
+echo "PORT=3001" >> .env
+
+# Or kill process using port 3000
+lsof -i :3000
+kill -9 <PID>
+```
+
+## Development Environment Setup
+
+### Quick Start with Development Database
+
+The fastest way to get started with development is to use the automated setup script:
+
+```bash
+# 1. Set up development database with sample data
+./setup-dev-db.sh
+
+# 2. Copy environment file
+cp .env.dev .env
+
+# 3. Install dependencies
+pnpm install
+
+# 4. Start development server
+pnpm dev
+```
+
+The development server will be available at `http://localhost:3000`.
+
+### Development Database Setup Script
+
+The `setup-dev-db.sh` script automates the entire development environment setup:
+
+```bash
+# Make script executable
+chmod +x setup-dev-db.sh
+
+# Run setup
+./setup-dev-db.sh
+```
+
+#### What the Script Does
+
+1. **Checks Prerequisites**
+   - Verifies MySQL installation
+   - Checks MySQL service status
+   - Starts MySQL if not running
+
+2. **Creates Database**
+   - Drops existing development database
+   - Creates fresh `smart_factory_dev` database
+   - Sets proper character set and collation
+
+3. **Creates Schema**
+   - Creates 7 tables with proper relationships
+   - Sets up indexes for performance
+   - Configures foreign keys
+
+4. **Inserts Sample Data**
+   - 3 development users (admin, operator, technician)
+   - 12 devices across multiple zones and production lines
+   - 8 sensor readings with time-series data
+   - 4 alert thresholds
+   - 3 alerts (open and resolved)
+   - 5 firmware versions
+   - 4 OTA deployments
+
+5. **Creates Configuration**
+   - Generates `.env.dev` file
+   - Sets up database connection string
+   - Configures development settings
+
+6. **Verifies Setup**
+   - Tests database connection
+   - Displays statistics
+   - Shows next steps
+
+#### Using Custom Database Credentials
+
+```bash
+# Set custom credentials before running setup
+export DB_HOST=localhost
+export DB_USER=devuser
+export DB_PASSWORD=devpass
+export DB_NAME=smart_factory_dev
+
+./setup-dev-db.sh
+```
+
+#### Development Sample Data
+
+The setup script includes comprehensive sample data:
+
+**Users:**
+- Admin: admin@dev.local
+- Operator: operator@dev.local
+- Technician: tech@dev.local
+
+**Devices:**
+- Production Line A: 5 devices (sensors, actuators, controllers)
+- Production Line B: 4 devices
+- Infrastructure: 2 gateways
+- Additional: 12 more devices for testing
+
+**Sensor Data:**
+- Time-series readings over the last hour
+- Temperature, humidity, pressure, vibration, power, RPM
+- Realistic values for manufacturing environment
+
+**Alerts:**
+- Temperature warnings
+- Vibration alerts
+- Device offline notifications
+- Various severity levels (info, warning, critical)
+
+### Adding More Development Data
+
+Use the seed script to add additional random data without resetting:
+
+```bash
+# Add random data to existing database
+node seed-dev-data.mjs
+
+# Reset database and reseed with fresh data
+node seed-dev-data.mjs --reset
+
+# Show help
+node seed-dev-data.mjs --help
+```
+
+#### What the Seed Script Does
+
+- Generates 20 additional devices
+- Creates 200+ sensor readings
+- Generates 50+ alerts
+- Adds firmware versions
+- Creates OTA deployment records
+- Displays final statistics
+
+### Development Environment File
+
+The `.env.dev` file contains development-specific configuration:
+
+```bash
+# Copy to .env for development
+cp .env.dev .env
+```
+
+**Key Settings:**
+- `NODE_ENV=development` - Development mode
+- `DATABASE_URL=mysql://root@localhost:3306/smart_factory_dev` - Dev database
+- `JWT_SECRET=dev-secret-key-change-in-production` - Development secret
+- `PORT=3000` - Development server port
+- `DEBUG=true` - Enable verbose logging
+- `CORS_ORIGINS=*` - Allow all origins for testing
+
+### Development Workflow
+
+```bash
+# 1. Initial setup (one time)
+./setup-dev-db.sh
+cp .env.dev .env
+pnpm install
+
+# 2. Start development server
+pnpm dev
+
+# 3. Open in browser
+# http://localhost:3000
+
+# 4. Make changes and see hot-reload
+# Edit files in client/src/ and server/
+
+# 5. Run tests during development
+pnpm test
+
+# 6. Type checking
+pnpm check
+
+# 7. Add more sample data
+node seed-dev-data.mjs
+
+# 8. Reset database if needed
+./setup-dev-db.sh
+```
+
+### Development Database Reset
+
+To reset the development database to initial state:
+
+```bash
+# Reset and reseed with initial data
+./setup-dev-db.sh
+
+# Or reset and add more data
+node seed-dev-data.mjs --reset
+```
+
+### Troubleshooting Development Setup
+
+**Issue: MySQL not running**
+```bash
+# Start MySQL service
+sudo service mysql start
+
+# Or with systemctl
+sudo systemctl start mysql
+```
+
+**Issue: Permission denied**
+```bash
+# Make scripts executable
+chmod +x setup-dev-db.sh
+chmod +x seed-dev-data.mjs
+```
+
+**Issue: Database connection refused**
+```bash
+# Check database URL in .env
+cat .env | grep DATABASE_URL
+
+# Verify MySQL is running
+mysql -u root -e "SELECT 1"
+```
+
+**Issue: Port already in use**
+```bash
+# Change port in .env
+echo "PORT=3001" >> .env
+
+# Or kill process using port 3000
+lsof -i :3000
+kill -9 <PID>
+```
+
 ## Testing
 
 ### Setting Up Test Database
