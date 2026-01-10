@@ -2,6 +2,7 @@
 
 # Smart Factory IoT - Development Setup Script
 # This script sets up the development environment, starts the database, and runs the dev server
+# Features: REST API authentication, Mock auth for GitHub Pages, Favicon support
 
 set -e  # Exit on error
 
@@ -114,10 +115,13 @@ NODE_ENV=development
 DATABASE_URL=mysql://root@localhost:3306/smart_factory_dev
 JWT_SECRET=dev-secret-key-change-in-production
 PORT=3000
-DEBUG=true
 VITE_APP_ID=smart-factory-iot
-VITE_APP_TITLE=Smart Factory IoT
+VITE_APP_TITLE=Smart Factory IoT Dashboard
+VITE_API_URL=http://localhost:3000/api
+VITE_FAVICON_PATH=/favicon.ico
+DEBUG=true
 CORS_ORIGINS=*
+GITHUB_PAGES_DEPLOYMENT=false
 EOF
             print_success ".env created with defaults"
         fi
@@ -133,13 +137,22 @@ start_dev_server() {
     echo ""
     echo -e "${GREEN}Development environment is ready!${NC}"
     echo ""
-    echo "Starting development server..."
+    echo "Authentication:"
+    echo "  - Uses REST API for backend authentication"
+    echo "  - Falls back to mock authentication on GitHub Pages"
+    echo "  - JWT tokens stored in localStorage"
     echo ""
-    echo "Demo Accounts:"
-    echo "  - Admin: admin@demo.local / demo-admin-password"
-    echo "  - Operator: operator@demo.local / demo-operator-password"
-    echo "  - Technician: technician@demo.local / demo-technician-password"
-    echo "  - Demo: demo@demo.local / demo-password"
+    echo "Demo Accounts (password: password123):"
+    echo "  - Admin: admin@dev.local"
+    echo "  - Operator: operator@dev.local"
+    echo "  - Technician: tech@dev.local"
+    echo "  - Demo: demo@dev.local"
+    echo ""
+    echo "Features:"
+    echo "  - REST API authentication (/api/auth/login)"
+    echo "  - Favicon: /favicon.ico (factory building icon)"
+    echo "  - Dashboard with mock device data"
+    echo "  - Responsive design with Tailwind CSS"
     echo ""
     echo "Access the application at: http://localhost:3000"
     echo ""
