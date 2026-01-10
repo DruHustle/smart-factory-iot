@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
+import { safeLocalStorage, safeSessionStorage } from "@/lib/storage";
 import type { User } from "../../../drizzle/schema";
 
 interface AuthContextType {
@@ -11,6 +12,20 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+/**
+ * Get the best available storage for the current environment
+ */
+function getAvailableStorage() {
+  if (safeLocalStorage.isAvailable()) {
+    return safeLocalStorage;
+  }
+  if (safeSessionStorage.isAvailable()) {
+    return safeSessionStorage;
+  }
+  // Both will fall back to in-memory storage
+  return safeLocalStorage;
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -38,7 +53,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await loginMutation.mutateAsync({ email, password });
       if (result.token) {
-        localStorage.setItem("token", result.token);
+        const storage = getAvailableStorage();
+        storage.setItem("token", result.token);
         setUser(result.user);
         return { success: true };
       }
@@ -60,7 +76,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       await logoutMutation.mutateAsync();
-      localStorage.removeItem("token");
+      const storage = getAvailableStorage();
+      storage.removeItem("token");
       setUser(null);
     } catch (error) {
       console.error("Logout failed", error);
