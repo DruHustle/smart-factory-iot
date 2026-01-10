@@ -27,31 +27,24 @@ export interface DemoAccount {
 export const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     label: 'Admin',
-    email: 'admin@demo.local',
-    password: 'demo-admin-password',
+    email: 'admin@dev.local',
+    password: 'password123',
     role: 'admin',
     description: 'Full system access and administration',
   },
   {
     label: 'Operator',
-    email: 'operator@demo.local',
-    password: 'demo-operator-password',
+    email: 'operator@dev.local',
+    password: 'password123',
     role: 'user',
     description: 'Device monitoring and basic operations',
   },
   {
     label: 'Technician',
-    email: 'technician@demo.local',
-    password: 'demo-technician-password',
+    email: 'tech@dev.local',
+    password: 'password123',
     role: 'user',
     description: 'Maintenance and technical support',
-  },
-  {
-    label: 'Demo',
-    email: 'demo@demo.local',
-    password: 'demo-password',
-    role: 'user',
-    description: 'Limited demo access for testing',
   },
 ];
 
