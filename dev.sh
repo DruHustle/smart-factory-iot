@@ -2,7 +2,6 @@
 
 # Smart Factory IoT - Development Setup Script
 # This script sets up the development environment, starts the database, and runs the dev server
-# Features: REST API authentication, Mock auth for GitHub Pages, Favicon support
 
 set -e  # Exit on error
 
@@ -50,39 +49,28 @@ check_prerequisites() {
         exit 1
     fi
     print_success "pnpm $(pnpm --version)"
-    
-    if ! command -v mysql &> /dev/null; then
-        print_error "MySQL client is not installed"
-        exit 1
-    fi
-    print_success "MySQL client installed"
 }
 
-# Setup database
-setup_database() {
-    print_header "Setting Up Database"
+# Setup environment
+setup_environment() {
+    print_header "Setting Up Environment"
     
-    if [ -f "./setup-dev-db.sh" ]; then
-        print_info "Running database setup script..."
-        chmod +x ./setup-dev-db.sh
-        ./setup-dev-db.sh
-        print_success "Database setup completed"
+    if [ ! -f ".env" ]; then
+        if [ -f ".env.example" ]; then
+            print_info "Creating .env from .env.example..."
+            cp .env.example .env
+            # Set local defaults for development
+            sed -i 's|DATABASE_URL=.*|DATABASE_URL="mysql://root@localhost:3306/smart_factory_iot"|' .env
+            sed -i 's|VITE_API_URL=.*|VITE_API_URL="http://localhost:3000/api"|' .env
+            sed -i 's|BACKEND_URL=.*|BACKEND_URL="http://localhost:3000"|' .env
+            sed -i 's|NODE_ENV=.*|NODE_ENV=development|' .env
+            print_success ".env created with local development defaults"
+        else
+            print_error ".env.example not found"
+            exit 1
+        fi
     else
-        print_error "setup-dev-db.sh not found"
-        exit 1
-    fi
-}
-
-# Seed demo accounts
-seed_demo_accounts() {
-    print_header "Seeding Demo Accounts"
-    
-    if [ -f "./seed-demo-accounts.mjs" ]; then
-        print_info "Seeding demo accounts..."
-        node ./seed-demo-accounts.mjs
-        print_success "Demo accounts seeded"
-    else
-        print_warning "seed-demo-accounts.mjs not found, skipping demo account seeding"
+        print_info ".env already exists"
     fi
 }
 
@@ -99,34 +87,28 @@ install_dependencies() {
     fi
 }
 
-# Setup environment
-setup_environment() {
-    print_header "Setting Up Environment"
+# Setup database
+setup_database() {
+    print_header "Setting Up Database"
     
-    if [ ! -f ".env" ]; then
-        if [ -f ".env.dev" ]; then
-            print_info "Creating .env from .env.dev..."
-            cp .env.dev .env
-            print_success ".env created"
-        else
-            print_warning ".env.dev not found, creating default .env..."
-            cat > .env << EOF
-NODE_ENV=development
-DATABASE_URL=mysql://root@localhost:3306/smart_factory_dev
-JWT_SECRET=dev-secret-key-change-in-production
-PORT=3000
-VITE_APP_ID=smart-factory-iot
-VITE_APP_TITLE=Smart Factory IoT Dashboard
-VITE_API_URL=http://localhost:3000/api
-VITE_FAVICON_PATH=/favicon.ico
-DEBUG=true
-CORS_ORIGINS=*
-GITHUB_PAGES_DEPLOYMENT=false
-EOF
-            print_success ".env created with defaults"
-        fi
+    if [ -f "./setup-dev-db.sh" ]; then
+        print_info "Running database setup script..."
+        chmod +x ./setup-dev-db.sh
+        ./setup-dev-db.sh || print_warning "Database setup failed. Make sure MySQL is running."
     else
-        print_info ".env already exists"
+        print_warning "setup-dev-db.sh not found, skipping database setup"
+    fi
+}
+
+# Seed demo accounts
+seed_demo_accounts() {
+    print_header "Seeding Demo Accounts"
+    
+    if [ -f "./seed-demo-accounts.mjs" ]; then
+        print_info "Seeding demo accounts..."
+        node ./seed-demo-accounts.mjs || print_warning "Seeding failed. Make sure the database is set up."
+    else
+        print_warning "seed-demo-accounts.mjs not found, skipping demo account seeding"
     fi
 }
 
@@ -136,23 +118,6 @@ start_dev_server() {
     
     echo ""
     echo -e "${GREEN}Development environment is ready!${NC}"
-    echo ""
-    echo "Authentication:"
-    echo "  - Uses REST API for backend authentication"
-    echo "  - Falls back to mock authentication on GitHub Pages"
-    echo "  - JWT tokens stored in localStorage"
-    echo ""
-    echo "Demo Accounts (password: password123):"
-    echo "  - Admin: admin@dev.local"
-    echo "  - Operator: operator@dev.local"
-    echo "  - Technician: tech@dev.local"
-    echo "  - Demo: demo@dev.local"
-    echo ""
-    echo "Features:"
-    echo "  - REST API authentication (/api/auth/login)"
-    echo "  - Favicon: /favicon.ico (factory building icon)"
-    echo "  - Dashboard with mock device data"
-    echo "  - Responsive design with Tailwind CSS"
     echo ""
     echo "Access the application at: http://localhost:3000"
     echo ""
@@ -165,10 +130,10 @@ main() {
     print_header "Smart Factory IoT - Development Setup"
     
     check_prerequisites
+    setup_environment
+    install_dependencies
     setup_database
     seed_demo_accounts
-    install_dependencies
-    setup_environment
     start_dev_server
 }
 

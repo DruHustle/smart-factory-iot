@@ -1,7 +1,0 @@
-
-> smart-factory-iot@1.0.0 dev /home/ubuntu/smart-factory-iot
-> NODE_ENV=development tsx watch server/_core/index.ts
-
-[WebSocket] Server initialized
-Port 3000 is busy, using port 3001 instead
-Server running on http://localhost:3001/
