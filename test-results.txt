@@ -1,0 +1,15 @@
+
+> smart-factory-iot@1.0.0 test /home/ubuntu/smart-factory-iot
+> vitest run
+
+
+ RUN  v2.1.9 /home/ubuntu/smart-factory-iot
+
+ ✓ server/auth.logout.test.ts (1 test) 8ms
+ ✓ server/devices.test.ts (21 tests) 22ms
+
+ Test Files  2 passed (2)
+      Tests  22 passed (22)
+   Start at  21:25:02
+   Duration  1.74s (transform 291ms, setup 0ms, collect 2.68s, tests 30ms, environment 0ms, prepare 223ms)
+
