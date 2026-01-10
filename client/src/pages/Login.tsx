@@ -1,11 +1,12 @@
 /**
  * Login Page Component
  * 
- * Professional login interface with blurred factory background.
- * Orange theme inspired by portfolio project design with SOLID principles.
+ * Professional login interface matching IMSOP design.
+ * Uses REST API authentication with demo account buttons.
  */
 
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Factory, Lock, Mail, Eye, EyeOff } from "lucide-react";
@@ -42,84 +43,84 @@ export default function Login() {
     }
   };
 
-  const fillDemoAccount = (email: string, password: string, label: string) => {
-    setEmail(email);
-    setPassword(password);
-    toast.info(`${label} account selected`);
+  const fillDemoCredentials = (demoEmail: string, demoPassword: string) => {
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    toast.info("Demo credentials filled");
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
-      {/* Blurred Industrial Background */}
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{
-          backgroundImage: "url('/images/industrial-blur-bg.jpg')",
-          filter: "blur(8px)",
-          transform: "scale(1.05)",
-        }}
-      />
-      
+    <div className="min-h-screen flex items-center justify-center bg-[url('/images/industrial-blur-bg.jpg')] bg-cover bg-center relative">
       {/* Dark Overlay */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      
-      {/* Gradient Overlay - Orange Theme */}
-      <div className="absolute inset-0 bg-gradient-to-br from-orange-900/20 via-transparent to-background/80" />
 
-      {/* Content */}
-      <div className="relative z-10 w-full max-w-md px-4">
-        {/* Logo Section */}
-        <div className="text-center mb-8 animate-fadeInUp">
+      {/* Login Card */}
+      <Card className="w-full max-w-md glass-panel border-white/10 relative z-10 animate-in fade-in zoom-in duration-500">
+        <CardHeader className="space-y-1 text-center">
+          {/* Logo */}
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary to-orange-500 flex items-center justify-center shadow-2xl shadow-primary/50">
-              <Factory className="w-8 h-8 text-primary-foreground" />
+            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary to-orange-500 flex items-center justify-center shadow-[0_0_20px_var(--primary)]">
+              <Factory className="w-7 h-7 text-primary-foreground" />
             </div>
           </div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">
-            Smart Factory IoT
-          </h1>
-          <p className="text-muted-foreground text-lg">
-            Industrial Monitoring & Control Platform
-          </p>
-        </div>
 
-        {/* Login Card */}
-        <div className="glass-effect p-8 animate-slideInRight border-2 border-primary/30">
-          <form onSubmit={handleLogin} className="space-y-5">
+          {/* Title */}
+          <CardTitle className="text-2xl font-bold tracking-wide">
+            Smart Factory IoT
+          </CardTitle>
+
+          {/* Subtitle */}
+          <CardDescription className="text-muted-foreground">
+            Industrial Monitoring & Control Platform
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-6">
+          {/* Login Form */}
+          <form onSubmit={handleLogin} className="space-y-4">
             {/* Email Field */}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-foreground font-semibold">
-                Email Address
+              <Label htmlFor="email" className="text-foreground font-medium">
+                Email
               </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin@factory.com"
+                  placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10 bg-background/50 border-white/20 focus:border-primary"
                   required
-                  className="pl-10 bg-input border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary"
                 />
               </div>
             </div>
 
             {/* Password Field */}
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-foreground font-semibold">
-                Password
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-foreground font-medium">
+                  Password
+                </Label>
+                <button
+                  type="button"
+                  onClick={() => navigate("/forgot-password")}
+                  className="text-xs text-primary hover:underline transition-colors"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10 pr-10 bg-background/50 border-white/20 focus:border-primary"
                   required
-                  className="pl-10 pr-10 bg-input border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary"
                 />
                 <button
                   type="button"
@@ -139,69 +140,40 @@ export default function Login() {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-primary hover:bg-primary/80 text-primary-foreground shadow-[0_0_15px_var(--primary)] font-semibold"
             >
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
 
           {/* Demo Accounts Section */}
-          <div className="mt-8 pt-6 border-t border-border/50">
-            <p className="text-center text-muted-foreground text-sm mb-4">
+          <div className="space-y-3">
+            <p className="text-xs text-center text-muted-foreground">
               Demo Accounts (click to fill):
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-wrap gap-2 justify-center">
               {DEMO_ACCOUNTS.map((account, index) => (
-                <button
+                <Button
                   key={index}
-                  type="button"
-                  onClick={() =>
-                    fillDemoAccount(account.email, account.password, account.label)
-                  }
-                  className="px-3 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 hover:border-primary/60 font-medium text-sm transition-all duration-200 hover:shadow-md"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fillDemoCredentials(account.email, account.password)}
+                  className="text-xs border-white/20 hover:bg-white/10"
                   title={account.description}
                 >
                   {account.label}
-                </button>
+                </Button>
               ))}
-              {/* Quick Demo Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  fillDemoAccount(DEMO_ACCOUNTS[0].email, DEMO_ACCOUNTS[0].password, 'Demo');
-                  // Auto-submit after a short delay
-                  setTimeout(() => {
-                    const form = document.querySelector('form');
-                    if (form) form.dispatchEvent(new Event('submit', { bubbles: true }));
-                  }, 300);
-                }}
-                className="col-span-2 px-3 py-2 rounded-lg bg-gradient-to-r from-primary/20 to-orange-500/20 hover:from-primary/30 hover:to-orange-500/30 text-primary border border-primary/50 hover:border-primary/80 font-semibold text-sm transition-all duration-200 hover:shadow-lg"
-                title="Quick demo login - auto-submits"
-              >
-                🚀 Quick Demo
-              </button>
             </div>
           </div>
 
-          {/* Register Link */}
-          <div className="mt-6 text-center">
-            <p className="text-muted-foreground text-sm">
-              Don't have an account?{" "}
-              <a
-                href="#/register"
-                className="text-primary hover:text-primary/80 font-semibold transition-colors"
-              >
-                Register here
-              </a>
-            </p>
+          {/* Footer */}
+          <div className="mt-6 text-center text-xs text-muted-foreground space-y-1">
+            <p>Protected by Smart Factory Identity Service</p>
+            <p>v1.0.0-stable</p>
           </div>
-        </div>
-
-        {/* Security Notice */}
-        <div className="mt-6 text-center text-xs text-muted-foreground">
-          🔒 Secure login with encrypted connection
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

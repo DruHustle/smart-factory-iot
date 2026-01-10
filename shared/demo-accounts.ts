@@ -46,6 +46,13 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     role: 'user',
     description: 'Maintenance and technical support',
   },
+  {
+    label: 'Demo',
+    email: 'demo@dev.local',
+    password: 'password123',
+    role: 'user',
+    description: 'Limited demo access for testing',
+  },
 ];
 
 /**
