@@ -6,6 +6,7 @@ import { SignJWT, jwtVerify } from "jose";
 import type { User } from "../../drizzle/schema";
 import * as db from "../db";
 import { ENV } from "./env";
+import bcrypt from "bcryptjs";
 
 // Utility function
 const isNonEmptyString = (value: unknown): value is string =>
@@ -15,6 +16,8 @@ export type SessionPayload = {
   openId: string;
   appId: string;
   name: string;
+  email?: string;
+  role?: string;
 };
 
 class SDKServer {
@@ -32,18 +35,28 @@ class SDKServer {
     return new TextEncoder().encode(secret);
   }
 
+  async hashPassword(password: string): Promise<string> {
+    return bcrypt.hash(password, 10);
+  }
+
+  async comparePassword(password: string, hash: string): Promise<boolean> {
+    return bcrypt.compare(password, hash);
+  }
+
   /**
-   * Create a session token for a user openId
+   * Create a session token for a user
    */
   async createSessionToken(
-    openId: string,
-    options: { expiresInMs?: number; name?: string } = {}
+    user: User,
+    options: { expiresInMs?: number } = {}
   ): Promise<string> {
     return this.signSession(
       {
-        openId,
+        openId: user.openId,
         appId: ENV.appId || "default-app",
-        name: options.name || "User",
+        name: user.name || "User",
+        email: user.email || undefined,
+        role: user.role,
       },
       options
     );
@@ -62,6 +75,8 @@ class SDKServer {
       openId: payload.openId,
       appId: payload.appId,
       name: payload.name,
+      email: payload.email,
+      role: payload.role,
     })
       .setProtectedHeader({ alg: "HS256", typ: "JWT" })
       .setExpirationTime(expirationSeconds)
@@ -69,18 +84,18 @@ class SDKServer {
   }
 
   async verifySession(
-    cookieValue: string | undefined | null
-  ): Promise<{ openId: string; appId: string; name: string } | null> {
-    if (!cookieValue) {
+    token: string | undefined | null
+  ): Promise<SessionPayload | null> {
+    if (!token) {
       return null;
     }
 
     try {
       const secretKey = this.getSessionSecret();
-      const { payload } = await jwtVerify(cookieValue, secretKey, {
+      const { payload } = await jwtVerify(token, secretKey, {
         algorithms: ["HS256"],
       });
-      const { openId, appId, name } = payload as Record<string, unknown>;
+      const { openId, appId, name, email, role } = payload as Record<string, unknown>;
 
       if (
         !isNonEmptyString(openId) ||
@@ -94,6 +109,8 @@ class SDKServer {
         openId,
         appId,
         name,
+        email: typeof email === "string" ? email : undefined,
+        role: typeof role === "string" ? role : undefined,
       };
     } catch (error) {
       console.warn("[Auth] Session verification failed", String(error));
@@ -102,17 +119,26 @@ class SDKServer {
   }
 
   async authenticateRequest(req: Request): Promise<User> {
-    const cookies = this.parseCookies(req.headers.cookie);
-    const sessionCookie = cookies.get(COOKIE_NAME);
-    const session = await this.verifySession(sessionCookie);
+    // Check Authorization header first
+    const authHeader = req.headers.authorization;
+    let token: string | undefined;
+
+    if (authHeader?.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    } else {
+      // Fallback to cookie
+      const cookies = this.parseCookies(req.headers.cookie);
+      token = cookies.get(COOKIE_NAME);
+    }
+
+    const session = await this.verifySession(token);
 
     if (!session) {
       // For local development, if no session, we can return a mock user
-      // or throw ForbiddenError. Let's try to find a default user first.
       const defaultUser = await db.getUserByOpenId("anonymous");
       if (defaultUser) return defaultUser;
       
-      throw ForbiddenError("Invalid session cookie");
+      throw ForbiddenError("Invalid or missing authentication");
     }
 
     const user = await db.getUserByOpenId(session.openId);

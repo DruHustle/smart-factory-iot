@@ -1,6 +1,7 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
+import { sdk } from "./_core/sdk";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import * as db from "./db";
@@ -47,6 +48,44 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
+    login: publicProcedure
+      .input(z.object({ email: z.string().email(), password: z.string() }))
+      .mutation(async ({ input, ctx }) => {
+        const user = await db.getUserByEmail(input.email);
+        if (!user || !user.password) {
+          throw new Error("Invalid email or password");
+        }
+
+        const isValid = await sdk.comparePassword(input.password, user.password);
+        if (!isValid) {
+          throw new Error("Invalid email or password");
+        }
+
+        const token = await sdk.createSessionToken(user);
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, token, cookieOptions);
+
+        return { token, user };
+      }),
+    register: publicProcedure
+      .input(z.object({ email: z.string().email(), password: z.string(), name: z.string() }))
+      .mutation(async ({ input }) => {
+        const existing = await db.getUserByEmail(input.email);
+        if (existing) {
+          throw new Error("Email already registered");
+        }
+
+        const hashedPassword = await sdk.hashPassword(input.password);
+        const user = await db.createUser({
+          email: input.email,
+          password: hashedPassword,
+          name: input.name,
+          openId: Math.random().toString(36).substring(7),
+          role: "user",
+        });
+
+        return { success: true, user };
+      }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
