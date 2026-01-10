@@ -2,7 +2,7 @@
  * Home/Dashboard Page
  * 
  * Professional dashboard with real-time factory monitoring.
- * Follows SOLID principles with reusable components.
+ * Updated with portfolio-inspired theme.
  */
 
 import { Button } from "@/components/ui/button";
@@ -109,10 +109,10 @@ export default function Home() {
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+          <h1 className="text-4xl font-bold tracking-tight text-foreground">
             Factory Dashboard
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground mt-2 text-lg">
             Real-time overview of your industrial IoT infrastructure
           </p>
         </div>
@@ -131,7 +131,7 @@ export default function Home() {
             onClick={() => seedMutation.mutate()}
             disabled={seedMutation.isPending}
             size="sm"
-            className="gap-2"
+            className="gap-2 bg-primary hover:bg-primary/90"
           >
             <Zap className="w-4 h-4" />
             Seed Data
@@ -170,7 +170,7 @@ export default function Home() {
           <SectionHeader
             title="Device Status"
             description="Current status of all connected devices"
-            icon={<Activity className="w-5 h-5" />}
+            icon={<Activity className="w-5 h-5 text-primary" />}
           />
           <ProfessionalCard elevated>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -196,7 +196,7 @@ export default function Home() {
           <SectionHeader
             title="Quick Actions"
             description="Common operations"
-            icon={<Zap className="w-5 h-5" />}
+            icon={<Zap className="w-5 h-5 text-primary" />}
           />
           <div className="space-y-3">
             <ProfessionalCard
@@ -275,7 +275,7 @@ export default function Home() {
               <Button
                 onClick={() => setLocation("/alerts")}
                 size="sm"
-                className="gap-2"
+                className="gap-2 bg-primary hover:bg-primary/90"
               >
                 <Bell className="w-4 h-4" />
                 View Alerts

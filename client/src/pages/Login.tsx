@@ -1,8 +1,8 @@
 /**
  * Login Page Component
  * 
- * Professional login interface with demo account quick-fill buttons.
- * Inspired by IMSOP design patterns with SOLID principles.
+ * Professional login interface with blurred factory background.
+ * Inspired by portfolio project design with SOLID principles.
  */
 
 import { Button } from "@/components/ui/button";
@@ -49,25 +49,35 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
-      {/* Background Gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-background" />
-      <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl" />
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
+      {/* Blurred Factory Background */}
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: "url('/images/factory-blur-bg.jpg')",
+          filter: "blur(2px)",
+        }}
+      />
+      
+      {/* Dark Overlay */}
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      
+      {/* Gradient Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-background/80" />
 
       {/* Content */}
       <div className="relative z-10 w-full max-w-md px-4">
         {/* Logo Section */}
         <div className="text-center mb-8 animate-fadeInUp">
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
-              <Factory className="w-8 h-8 text-white" />
+            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-2xl shadow-primary/50">
+              <Factory className="w-8 h-8 text-primary-foreground" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">
+          <h1 className="text-4xl font-bold text-foreground mb-2">
             Smart Factory IoT
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-lg">
             Industrial Monitoring & Control Platform
           </p>
         </div>
@@ -77,11 +87,11 @@ export default function Login() {
           <form onSubmit={handleLogin} className="space-y-5">
             {/* Email Field */}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-foreground font-medium">
+              <Label htmlFor="email" className="text-foreground font-semibold">
                 Email Address
               </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
                 <Input
                   id="email"
                   type="email"
@@ -96,11 +106,11 @@ export default function Login() {
 
             {/* Password Field */}
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-foreground font-medium">
+              <Label htmlFor="password" className="text-foreground font-semibold">
                 Password
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
@@ -113,7 +123,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
                 >
                   {showPassword ? (
                     <EyeOff className="w-4 h-4" />
@@ -128,7 +138,7 @@ export default function Login() {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full btn-primary group"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 rounded-lg group transition-all duration-200"
             >
               {isLoading ? (
                 "Signing in..."
@@ -147,7 +157,7 @@ export default function Login() {
               <div className="w-full border-t border-border/50" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-card text-muted-foreground">
+              <span className="px-2 bg-black/20 text-muted-foreground">
                 Demo Accounts
               </span>
             </div>
@@ -162,7 +172,7 @@ export default function Login() {
                 onClick={() =>
                   fillDemoAccount(account.email, account.password, account.label)
                 }
-                className="px-3 py-2.5 rounded-lg bg-secondary/50 hover:bg-secondary text-foreground border border-border hover:border-primary/50 transition-all duration-200 text-sm font-medium group"
+                className="px-3 py-2.5 rounded-lg bg-secondary/50 hover:bg-secondary border border-border hover:border-primary/50 text-foreground transition-all duration-200 text-sm font-medium group"
                 title={account.description}
               >
                 <span className="group-hover:text-primary transition-colors">
@@ -178,7 +188,7 @@ export default function Login() {
             <button
               type="button"
               onClick={() => navigate("/register")}
-              className="text-primary hover:text-primary/80 font-medium transition-colors"
+              className="text-primary hover:text-accent font-semibold transition-colors"
             >
               Register here
             </button>
