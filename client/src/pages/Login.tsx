@@ -50,12 +50,13 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
-      {/* Blurred Factory Background */}
+      {/* Blurred Industrial Background */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: "url('/images/factory-blur-bg.jpg')",
-          filter: "blur(2px)",
+          backgroundImage: "url('/images/industrial-blur-bg.jpg')",
+          filter: "blur(8px)",
+          transform: "scale(1.05)",
         }}
       />
       
