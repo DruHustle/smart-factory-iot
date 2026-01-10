@@ -164,6 +164,22 @@ export default function Login() {
                   {account.label}
                 </button>
               ))}
+              {/* Quick Demo Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  fillDemoAccount(DEMO_ACCOUNTS[0].email, DEMO_ACCOUNTS[0].password, 'Demo');
+                  // Auto-submit after a short delay
+                  setTimeout(() => {
+                    const form = document.querySelector('form');
+                    if (form) form.dispatchEvent(new Event('submit', { bubbles: true }));
+                  }, 300);
+                }}
+                className="col-span-2 px-3 py-2 rounded-lg bg-gradient-to-r from-primary/20 to-orange-500/20 hover:from-primary/30 hover:to-orange-500/30 text-primary border border-primary/50 hover:border-primary/80 font-semibold text-sm transition-all duration-200 hover:shadow-lg"
+                title="Quick demo login - auto-submits"
+              >
+                🚀 Quick Demo
+              </button>
             </div>
           </div>
 
