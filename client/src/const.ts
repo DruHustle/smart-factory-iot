@@ -14,6 +14,5 @@ function validateEnvironmentConfig(): EnvironmentConfig {
 }
 
 export const getLoginUrl = (): string => {
-  // Since we removed the Manus OAuth, we can redirect to a mock login or just return #
   return "/login";
 };
