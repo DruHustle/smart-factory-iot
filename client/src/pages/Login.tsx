@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+import { DEMO_ACCOUNTS } from "../../../shared/demo-accounts";
 
 export default function Login() {
   const { login } = useAuth();
@@ -33,6 +34,12 @@ export default function Login() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const fillDemoAccount = (email: string, password: string, label: string) => {
+    setEmail(email);
+    setPassword(password);
+    toast.info(`${label} account selected`);
   };
 
   return (
@@ -111,6 +118,23 @@ export default function Login() {
             >
               Register
             </button>
+          </div>
+          
+          <div className="border-t border-slate-800 pt-6">
+            <p className="text-center text-sm text-slate-400 mb-3">Demo Accounts (click to fill):</p>
+            <div className="grid grid-cols-2 gap-2">
+              {DEMO_ACCOUNTS.map((account) => (
+                <button
+                  key={account.email}
+                  type="button"
+                  onClick={() => fillDemoAccount(account.email, account.password, account.label)}
+                  className="px-3 py-2 text-sm rounded-md bg-slate-800/50 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 hover:border-slate-600 transition-colors"
+                  title={account.description}
+                >
+                  {account.label}
+                </button>
+              ))}
+            </div>
           </div>
         </CardContent>
       </Card>
