@@ -1,5 +1,15 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+/**
+ * Home/Dashboard Page
+ * 
+ * Professional dashboard with real-time factory monitoring.
+ * Follows SOLID principles with reusable components.
+ */
+
 import { Button } from "@/components/ui/button";
+import { ProfessionalCard } from "@/components/ui/professional-card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { MetricDisplay } from "@/components/ui/metric-display";
+import { SectionHeader } from "@/components/ui/section-header";
 import { trpc } from "@/lib/trpc";
 import {
   Cpu,
@@ -11,6 +21,8 @@ import {
   XCircle,
   Wrench,
   RefreshCw,
+  BarChart3,
+  Bell,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
@@ -47,223 +59,240 @@ export default function Home() {
     warning: 0,
   };
 
+  const getDeviceStatus = () => {
+    if (deviceStats.error > 0) return "critical";
+    if (deviceStats.maintenance > 0) return "warning";
+    if (deviceStats.offline > 0) return "offline";
+    return "online";
+  };
+
   const kpiCards = [
     {
       title: "Total Devices",
       value: deviceStats.total,
       icon: Cpu,
       description: "Connected IoT devices",
-      color: "text-primary",
-      bgColor: "bg-primary/10",
+      trend: "stable" as const,
     },
     {
       title: "Online",
       value: deviceStats.online,
       icon: CheckCircle2,
       description: `${deviceStats.total > 0 ? Math.round((deviceStats.online / deviceStats.total) * 100) : 0}% availability`,
-      color: "text-success",
-      bgColor: "bg-success/10",
+      trend: "up" as const,
     },
     {
       title: "Active Alerts",
       value: alertStats.active,
       icon: AlertTriangle,
       description: `${alertStats.critical} critical`,
-      color: alertStats.critical > 0 ? "text-destructive" : "text-warning",
-      bgColor: alertStats.critical > 0 ? "bg-destructive/10" : "bg-warning/10",
+      trend: alertStats.critical > 0 ? ("up" as const) : ("stable" as const),
     },
     {
       title: "OEE Score",
       value: oeeMetrics?.oee ? `${oeeMetrics.oee}%` : "—",
       icon: TrendingUp,
       description: "Overall Equipment Effectiveness",
-      color: "text-chart-3",
-      bgColor: "bg-chart-3/10",
+      trend: "stable" as const,
     },
   ];
 
   const statusCards = [
-    { label: "Online", value: deviceStats.online, icon: CheckCircle2, color: "text-success" },
-    { label: "Offline", value: deviceStats.offline, icon: XCircle, color: "text-muted-foreground" },
-    { label: "Maintenance", value: deviceStats.maintenance, icon: Wrench, color: "text-warning" },
-    { label: "Error", value: deviceStats.error, icon: AlertTriangle, color: "text-destructive" },
+    { label: "Online", value: deviceStats.online, status: "online" as const },
+    { label: "Offline", value: deviceStats.offline, status: "offline" as const },
+    { label: "Maintenance", value: deviceStats.maintenance, status: "maintenance" as const },
+    { label: "Critical", value: deviceStats.error, status: "critical" as const },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Factory Dashboard</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            Factory Dashboard
+          </h1>
+          <p className="text-muted-foreground mt-1">
             Real-time overview of your industrial IoT infrastructure
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Button
-            variant="outline"
-            size="sm"
             onClick={() => refetch()}
             disabled={isLoading}
+            variant="outline"
+            size="sm"
+            className="gap-2"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className="w-4 h-4" />
             Refresh
           </Button>
-          {deviceStats.total === 0 && (
-            <Button
-              size="sm"
-              onClick={() => seedMutation.mutate()}
-              disabled={seedMutation.isPending}
-            >
-              {seedMutation.isPending ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Seeding...
-                </>
-              ) : (
-                <>
-                  <Zap className="h-4 w-4 mr-2" />
-                  Generate Demo Data
-                </>
-              )}
-            </Button>
-          )}
+          <Button
+            onClick={() => seedMutation.mutate()}
+            disabled={seedMutation.isPending}
+            size="sm"
+            className="gap-2"
+          >
+            <Zap className="w-4 h-4" />
+            Seed Data
+          </Button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {kpiCards.map((kpi) => (
-          <Card key={kpi.title} className="border-border">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {kpi.title}
-              </CardTitle>
-              <div className={`p-2 rounded-lg ${kpi.bgColor}`}>
-                <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
+      {/* KPI Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {kpiCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <ProfessionalCard key={card.title} className="gradient-primary">
+              <div className="flex items-start justify-between mb-4">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Icon className="w-5 h-5 text-primary" />
+                </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${kpi.color}`}>{kpi.value}</div>
-              <p className="text-xs text-muted-foreground mt-1">{kpi.description}</p>
-            </CardContent>
-          </Card>
-        ))}
+              <MetricDisplay
+                value={card.value}
+                label={card.title}
+                icon={null}
+              />
+              <p className="text-xs text-muted-foreground mt-3">
+                {card.description}
+              </p>
+            </ProfessionalCard>
+          );
+        })}
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Device Status */}
-        <Card className="border-border">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-primary" />
-              Device Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              {statusCards.map((status) => (
-                <div
-                  key={status.label}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50"
-                >
-                  <status.icon className={`h-5 w-5 ${status.color}`} />
-                  <div>
-                    <p className="text-2xl font-bold">{status.value}</p>
-                    <p className="text-xs text-muted-foreground">{status.label}</p>
+      {/* System Status */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Device Status Overview */}
+        <div className="lg:col-span-2">
+          <SectionHeader
+            title="Device Status"
+            description="Current status of all connected devices"
+            icon={<Activity className="w-5 h-5" />}
+          />
+          <ProfessionalCard elevated>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {statusCards.map((card) => (
+                <div key={card.label} className="text-center">
+                  <div className="text-2xl font-bold text-primary mb-2">
+                    {card.value}
                   </div>
+                  <StatusBadge
+                    status={card.status}
+                    label={card.label}
+                    showDot={false}
+                    className="justify-center w-full"
+                  />
                 </div>
               ))}
             </div>
-            <Button
-              variant="outline"
-              className="w-full mt-4"
-              onClick={() => setLocation("/devices")}
-            >
-              View All Devices
-            </Button>
-          </CardContent>
-        </Card>
+          </ProfessionalCard>
+        </div>
 
-        {/* Alert Summary */}
-        <Card className="border-border">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-warning" />
-              Alert Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
-                  <span className="text-sm font-medium">Critical</span>
-                </div>
-                <span className="text-xl font-bold text-destructive">{alertStats.critical}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-warning/10 border border-warning/20">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-warning" />
-                  <span className="text-sm font-medium">Warning</span>
-                </div>
-                <span className="text-xl font-bold text-warning">{alertStats.warning}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-muted-foreground" />
-                  <span className="text-sm font-medium">Acknowledged</span>
-                </div>
-                <span className="text-xl font-bold">{alertStats.acknowledged}</span>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              className="w-full mt-4"
-              onClick={() => setLocation("/alerts")}
+        {/* Quick Actions */}
+        <div>
+          <SectionHeader
+            title="Quick Actions"
+            description="Common operations"
+            icon={<Zap className="w-5 h-5" />}
+          />
+          <div className="space-y-3">
+            <ProfessionalCard
+              interactive
+              onClick={() => setLocation("/devices")}
+              className="cursor-pointer"
             >
-              View All Alerts
-            </Button>
-          </CardContent>
-        </Card>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Cpu className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <div className="font-medium text-foreground">Manage Devices</div>
+                  <div className="text-xs text-muted-foreground">View all devices</div>
+                </div>
+              </div>
+            </ProfessionalCard>
+
+            <ProfessionalCard
+              interactive
+              onClick={() => setLocation("/alerts")}
+              className="cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-warning/10">
+                  <Bell className="w-5 h-5 text-warning" />
+                </div>
+                <div>
+                  <div className="font-medium text-foreground">View Alerts</div>
+                  <div className="text-xs text-muted-foreground">
+                    {alertStats.active} active
+                  </div>
+                </div>
+              </div>
+            </ProfessionalCard>
+
+            <ProfessionalCard
+              interactive
+              onClick={() => setLocation("/analytics")}
+              className="cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-accent/10">
+                  <BarChart3 className="w-5 h-5 text-accent" />
+                </div>
+                <div>
+                  <div className="font-medium text-foreground">Analytics</div>
+                  <div className="text-xs text-muted-foreground">View reports</div>
+                </div>
+              </div>
+            </ProfessionalCard>
+          </div>
+        </div>
       </div>
 
-      {/* OEE Metrics */}
-      {oeeMetrics && (
-        <Card className="border-border">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-chart-3" />
-              OEE Metrics
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 rounded-lg bg-secondary/50">
-                <p className="text-3xl font-bold text-chart-1">{oeeMetrics.availability}%</p>
-                <p className="text-sm text-muted-foreground mt-1">Availability</p>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-secondary/50">
-                <p className="text-3xl font-bold text-chart-2">{oeeMetrics.performance}%</p>
-                <p className="text-sm text-muted-foreground mt-1">Performance</p>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-secondary/50">
-                <p className="text-3xl font-bold text-chart-3">{oeeMetrics.quality}%</p>
-                <p className="text-sm text-muted-foreground mt-1">Quality</p>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-primary/10 border border-primary/20">
-                <p className="text-3xl font-bold text-primary">{oeeMetrics.oee}%</p>
-                <p className="text-sm text-muted-foreground mt-1">Overall OEE</p>
-              </div>
+      {/* Alert Summary */}
+      {alertStats.active > 0 && (
+        <ProfessionalCard elevated className="border-warning/30 bg-warning/5">
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-lg bg-warning/10">
+              <AlertTriangle className="w-6 h-6 text-warning" />
             </div>
-            <Button
-              variant="outline"
-              className="w-full mt-4"
-              onClick={() => setLocation("/analytics")}
-            >
-              View Detailed Analytics
-            </Button>
-          </CardContent>
-        </Card>
+            <div className="flex-1">
+              <h3 className="font-semibold text-foreground mb-1">
+                Active Alerts
+              </h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                You have {alertStats.active} active alert
+                {alertStats.active !== 1 ? "s" : ""} requiring attention.
+                {alertStats.critical > 0 && (
+                  <span className="text-destructive font-medium ml-1">
+                    {alertStats.critical} critical
+                  </span>
+                )}
+              </p>
+              <Button
+                onClick={() => setLocation("/alerts")}
+                size="sm"
+                className="gap-2"
+              >
+                <Bell className="w-4 h-4" />
+                View Alerts
+              </Button>
+            </div>
+          </div>
+        </ProfessionalCard>
+      )}
+
+      {/* Empty State */}
+      {isLoading && (
+        <ProfessionalCard className="text-center py-12">
+          <div className="animate-pulse">
+            <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading dashboard data...</p>
+          </div>
+        </ProfessionalCard>
       )}
     </div>
   );
