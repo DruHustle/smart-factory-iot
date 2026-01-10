@@ -59,8 +59,8 @@
   --popover: #111d3d;
   --popover-foreground: #e8ecf1;
   
-  /* Cyan/Teal Primary - Modern Tech Color */
-  --primary: #00d9ff;
+  /* Orange Theme - Inspired by Portfolio Smart Factory IoT */
+  --primary: #ff8c42;
   --primary-foreground: #0a0e27;
   
   --secondary: #1a2847;
@@ -69,7 +69,7 @@
   --muted: #1f2d47;
   --muted-foreground: #7a8599;
   
-  --accent: #00d9ff;
+  --accent: #ff8c42;
   --accent-foreground: #0a0e27;
   
   --destructive: #ff4757;
@@ -77,24 +77,24 @@
   
   --border: #1f2d47;
   --input: #111d3d;
-  --ring: #00d9ff;
+  --ring: #ff8c42;
   
-  /* Chart Colors - Professional Palette */
-  --chart-1: #00d9ff;
-  --chart-2: #00f0d9;
-  --chart-3: #7c3aed;
-  --chart-4: #06b6d4;
-  --chart-5: #0ea5e9;
+  /* Chart Colors - Orange Palette */
+  --chart-1: #ff8c42;
+  --chart-2: #ff9f5a;
+  --chart-3: #ffb372;
+  --chart-4: #ffc78a;
+  --chart-5: #ffdba2;
   
   /* Sidebar */
   --sidebar: #0f1629;
   --sidebar-foreground: #e8ecf1;
-  --sidebar-primary: #00d9ff;
+  --sidebar-primary: #ff8c42;
   --sidebar-primary-foreground: #0a0e27;
   --sidebar-accent: #1a2847;
   --sidebar-accent-foreground: #a8b5c7;
   --sidebar-border: #1f2d47;
-  --sidebar-ring: #00d9ff;
+  --sidebar-ring: #ff8c42;
   
   /* Status Colors */
   --success: #10b981;
