@@ -31,7 +31,9 @@ The application is built on a modern technology stack with a React-based fronten
 
 - **Frontend:** React 19, TypeScript, TailwindCSS 4, Vite
 - **Backend:** Node.js, Express, TypeScript
-- **Database:** MySQL (or compatible)
+- **Database:** MySQL with Aiven (https://aiven.io)
+- **Backend Hosting:** Render (https://render.com)
+- **Frontend Hosting:** GitHub Pages
 - **ORM:** Drizzle ORM
 - **Authentication:** REST API with JWT tokens
 - **UI Components:** shadcn/ui, Radix UI
@@ -42,7 +44,20 @@ The application is built on a modern technology stack with a React-based fronten
 
 - Node.js (v18 or later)
 - pnpm (recommended) or npm
-- A running MySQL database instance
+- MySQL database (local development) or Aiven MySQL (production)
+- Render account for backend deployment (optional)
+
+### Deployment Options
+
+**Development:**
+- Local Node.js server with local MySQL database
+- See `dev.sh` for setup instructions
+
+**Production:**
+- Backend: Render (https://render.com)
+- Database: Aiven MySQL (https://aiven.io)
+- Frontend: GitHub Pages (automatic)
+- See `RENDER_DEPLOYMENT.md` for detailed deployment instructions
 
 ### Installation
 
