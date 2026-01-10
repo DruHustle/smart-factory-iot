@@ -19,7 +19,7 @@ interface EnvironmentConfig {
  */
 function validateEnvironmentConfig(): EnvironmentConfig {
   // Provide default values for production/demo environments to prevent crashes
-  const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL || "https://auth.manus.im";
+  const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL || "";
   const appId = import.meta.env.VITE_APP_ID || "demo-app";
 
   return {

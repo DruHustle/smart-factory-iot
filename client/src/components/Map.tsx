@@ -89,11 +89,18 @@ function getMapsConfig(): MapsConfig {
   const apiKey = import.meta.env.VITE_FRONTEND_FORGE_API_KEY;
   const baseUrl =
     import.meta.env.VITE_FRONTEND_FORGE_API_URL ||
-    "https://forge.butterfly-effect.dev";
+    "";
 
   if (!apiKey) {
     console.warn(
       "[Maps] Warning: VITE_FRONTEND_FORGE_API_KEY is not configured. " +
+      "Map functionality may not work. Please set this environment variable."
+    );
+  }
+
+  if (!baseUrl) {
+    console.warn(
+      "[Maps] Warning: VITE_FRONTEND_FORGE_API_URL is not configured. " +
       "Map functionality may not work. Please set this environment variable."
     );
   }

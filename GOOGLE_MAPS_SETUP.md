@@ -20,7 +20,7 @@ Client (Browser)
     ↓
 Frontend Maps Component (VITE_FRONTEND_FORGE_API_KEY)
     ↓
-Maps Proxy Service (forge.butterfly-effect.dev)
+Maps Proxy Service
     ↓
 Google Maps API
 ```
@@ -73,11 +73,11 @@ Edit your `.env` file:
 
 ```bash
 # Backend Maps Configuration
-BUILT_IN_FORGE_API_URL="https://forge.butterfly-effect.dev"
+BUILT_IN_FORGE_API_URL="http://localhost:3001"
 BUILT_IN_FORGE_API_KEY="your-api-key-here"
 
 # Frontend Maps Configuration
-VITE_FRONTEND_FORGE_API_URL="https://forge.butterfly-effect.dev"
+VITE_FRONTEND_FORGE_API_URL="http://localhost:3001"
 VITE_FRONTEND_FORGE_API_KEY="your-frontend-api-key-here"
 ```
 
@@ -88,7 +88,7 @@ VITE_FRONTEND_FORGE_API_KEY="your-frontend-api-key-here"
 ```bash
 # The server will validate configuration on startup
 # Look for this message in server logs:
-# [OAuth] Initialized with baseURL: https://forge.butterfly-effect.dev
+# [OAuth] Initialized with baseURL: http://localhost:3001
 ```
 
 #### Check Frontend Configuration
