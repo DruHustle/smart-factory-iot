@@ -6,7 +6,7 @@
 
 ## 🚀 Quick Links
 
-- **[Live Demo](https://druhustle.github.io/smart-factory-iot/coming-soon.html)** - View the live demo (coming soon)
+- **[Live Demo](https://druhustle.github.io/smart-factory-iot/coming-soon.html)** - View the live demo 
 - **[GitHub Repository](https://github.com/DruHustle/smart-factory-iot)** - View source code
 - **[Issues](https://github.com/DruHustle/smart-factory-iot/issues)** - Report bugs or request features
 
