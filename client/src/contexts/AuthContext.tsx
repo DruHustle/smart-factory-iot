@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import type { User } from "../../../drizzle/schema";
 
@@ -18,15 +18,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const meQuery = trpc.auth.me.useQuery(undefined, {
     retry: false,
-    onSuccess: (data) => {
-      setUser(data);
+  });
+
+  useEffect(() => {
+    if (meQuery.data !== undefined) {
+      setUser(meQuery.data);
       setIsLoading(false);
-    },
-    onError: () => {
+    } else if (meQuery.isError) {
       setUser(null);
       setIsLoading(false);
-    },
-  });
+    }
+  }, [meQuery.data, meQuery.isError]);
 
   const loginMutation = trpc.auth.login.useMutation();
   const registerMutation = trpc.auth.register.useMutation();
