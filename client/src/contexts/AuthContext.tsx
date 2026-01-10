@@ -1,6 +1,12 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { trpc } from "@/lib/trpc";
-import { safeLocalStorage, safeSessionStorage } from "@/lib/storage";
+import {
+  login as apiLogin,
+  register as apiRegister,
+  logout as apiLogout,
+  getCurrentUser,
+  isGitHubPagesDeployment,
+} from "@/lib/api-auth";
+import { mockLogin, mockRegister, mockGetCurrentUser } from "@/lib/mock-auth";
 import type { User } from "../../../drizzle/schema";
 
 interface AuthContextType {
@@ -13,52 +19,65 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-/**
- * Get the best available storage for the current environment
- */
-function getAvailableStorage() {
-  if (safeLocalStorage.isAvailable()) {
-    return safeLocalStorage;
-  }
-  if (safeSessionStorage.isAvailable()) {
-    return safeSessionStorage;
-  }
-  // Both will fall back to in-memory storage
-  return safeLocalStorage;
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  const meQuery = trpc.auth.me.useQuery(undefined, {
-    retry: false,
-  });
+  const isGitHubPages = isGitHubPagesDeployment();
 
   useEffect(() => {
-    if (meQuery.data !== undefined) {
-      setUser(meQuery.data);
-      setIsLoading(false);
-    } else if (meQuery.isError) {
-      setUser(null);
-      setIsLoading(false);
-    }
-  }, [meQuery.data, meQuery.isError]);
+    const initializeAuth = async () => {
+      if (isGitHubPages) {
+        // For GitHub Pages, check localStorage for token and validate it
+        const token = localStorage.getItem("token");
 
-  const loginMutation = trpc.auth.login.useMutation();
-  const registerMutation = trpc.auth.register.useMutation();
-  const logoutMutation = trpc.auth.logout.useMutation();
+        if (token) {
+          const result = await mockGetCurrentUser(token);
+          if (result.success && result.user) {
+            setUser(result.user);
+          } else {
+            localStorage.removeItem("token");
+            setUser(null);
+          }
+        } else {
+          setUser(null);
+        }
+      } else {
+        // For real backend
+        const result = await getCurrentUser();
+        if (result.success && result.user) {
+          setUser(result.user);
+        } else {
+          setUser(null);
+        }
+      }
+
+      setIsLoading(false);
+    };
+
+    initializeAuth();
+  }, [isGitHubPages]);
 
   const login = async (email: string, password: string) => {
     try {
-      const result = await loginMutation.mutateAsync({ email, password });
-      if (result.token) {
-        const storage = getAvailableStorage();
-        storage.setItem("token", result.token);
-        setUser(result.user);
+      let result;
+
+      if (isGitHubPages) {
+        // Use mock auth
+        result = await mockLogin(email, password);
+        if (!result.success) {
+          return { success: false, error: result.error };
+        }
+      } else {
+        // Use real backend
+        result = await apiLogin(email, password);
+      }
+
+      if (result.success) {
+        setUser(result.user || null);
         return { success: true };
       }
-      return { success: false, error: "Login failed" };
+
+      return { success: false, error: result.error || "Login failed" };
     } catch (error: any) {
       return { success: false, error: error.message || "Login failed" };
     }
@@ -66,8 +85,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (email: string, password: string, name: string) => {
     try {
-      await registerMutation.mutateAsync({ email, password, name });
-      return { success: true };
+      if (isGitHubPages) {
+        // Use mock auth
+        const result = await mockRegister(email, password, name);
+        if (!result.success) {
+          return { success: false, error: result.error };
+        }
+        return { success: true };
+      } else {
+        // Use real backend
+        const result = await apiRegister(email, password, name);
+        if (!result.success) {
+          return { success: false, error: result.error };
+        }
+        return { success: true };
+      }
     } catch (error: any) {
       return { success: false, error: error.message || "Registration failed" };
     }
@@ -75,9 +107,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await logoutMutation.mutateAsync();
-      const storage = getAvailableStorage();
-      storage.removeItem("token");
+      if (!isGitHubPages) {
+        await apiLogout();
+      } else {
+        localStorage.removeItem("token");
+      }
       setUser(null);
     } catch (error) {
       console.error("Logout failed", error);
