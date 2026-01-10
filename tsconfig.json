@@ -16,7 +16,7 @@
     "baseUrl": ".",
     "target": "ES2020",
     "downlevelIteration": true,
-    "types": ["node", "vite/client", "ws"],
+    "types": ["vite/client", "ws"],
     "paths": {
       "@/*": ["./client/src/*"],
       "@shared/*": ["./shared/*"]
