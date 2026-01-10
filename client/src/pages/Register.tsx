@@ -1,0 +1,134 @@
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Factory, Lock, Mail, User, Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { useLocation } from "wouter";
+
+export default function Register() {
+  const { register } = useAuth();
+  const [, navigate] = useLocation();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const result = await register(email, password, name);
+      if (result.success) {
+        toast.success("Registration successful! Please sign in.");
+        navigate("/login");
+      } else {
+        toast.error(result.error || "Registration failed");
+      }
+    } catch (error) {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-900/20 via-slate-950 to-slate-950" />
+      
+      <Card className="w-full max-w-md bg-slate-900/50 border-slate-800 backdrop-blur-xl relative z-10">
+        <CardHeader className="space-y-1 text-center">
+          <div className="flex justify-center mb-4">
+            <div className="w-12 h-12 rounded-lg bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <Factory className="w-7 h-7 text-white" />
+            </div>
+          </div>
+          <CardTitle className="text-2xl font-bold tracking-tight text-white">Create Account</CardTitle>
+          <CardDescription className="text-slate-400">
+            Join the Smart Factory IoT platform
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-slate-300">Full Name</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="John Doe"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="pl-10 bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-600"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-slate-300">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="name@factory.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10 bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-600"
+                  required
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-slate-300">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10 pr-10 bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-600"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            
+            <Button 
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold"
+            >
+              {isLoading ? "Creating account..." : "Register"}
+            </Button>
+          </form>
+          
+          <div className="text-center text-sm">
+            <span className="text-slate-400">Already have an account? </span>
+            <button 
+              onClick={() => navigate("/login")}
+              className="text-blue-400 hover:text-blue-300 font-medium"
+            >
+              Sign In
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
