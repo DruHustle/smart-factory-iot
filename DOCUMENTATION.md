@@ -6,8 +6,11 @@ Welcome to the Smart Factory IoT platform documentation. This comprehensive guid
 
 ### Architecture & Design
 - **[System Architecture](./docs/architecture.md)** - High-level system design and component overview
+  - 📥 [Download PDF](./docs/architecture.pdf) | 🌐 [View Online](https://github.com/DruHustle/smart-factory-iot/blob/main/docs/architecture.md)
 - **[Database Schema](./docs/database-schema.md)** - Complete database design and relationships
+  - 📥 [Download PDF](./docs/database-schema.pdf) | 🌐 [View Online](https://github.com/DruHustle/smart-factory-iot/blob/main/docs/database-schema.md)
 - **[API Flows & Sequences](./docs/api-flows.md)** - Detailed API interaction flows and diagrams
+  - 📥 [Download PDF](./docs/api-flows.pdf) | 🌐 [View Online](https://github.com/DruHustle/smart-factory-iot/blob/main/docs/api-flows.md)
 
 ### Development
 - **[Setup & Installation](./README.md#-development-setup)** - Local development environment setup
