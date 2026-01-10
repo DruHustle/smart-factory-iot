@@ -15,6 +15,13 @@
       "when": 1767956057828,
       "tag": "0001_nebulous_gateway",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1768030840108,
+      "tag": "0002_ambitious_mandroid",
+      "breakpoints": true
     }
   ]
 }

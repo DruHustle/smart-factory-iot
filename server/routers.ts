@@ -597,30 +597,35 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
-        const device = await db.getDeviceById(input.deviceId);
-        if (!device) {
-          throw new Error("Device not found");
+        try {
+          const device = await db.getDeviceById(input.deviceId);
+          if (!device) {
+            throw new Error("Device not found");
+          }
+
+          const [readings, thresholds, alerts] = await Promise.all([
+            db.getSensorReadings(input.deviceId, input.startTime, input.endTime),
+            db.getAlertThresholds(input.deviceId),
+            db.getAlerts({ deviceId: input.deviceId, limit: 50 }),
+          ]);
+
+          const reportData: DeviceReportData = {
+            device,
+            readings,
+            thresholds,
+            alerts,
+            dateRange: {
+              start: new Date(input.startTime),
+              end: new Date(input.endTime),
+            },
+          };
+
+          const html = generateDeviceReportHtml(reportData);
+          return { html, filename: `device-report-${device.deviceId}-${Date.now()}.html` };
+        } catch (error) {
+          console.error(`[Export] Failed to generate device report for device ${input.deviceId}:`, error);
+          throw new Error(`Failed to generate report: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
-
-        const [readings, thresholds, alerts] = await Promise.all([
-          db.getSensorReadings(input.deviceId, input.startTime, input.endTime),
-          db.getAlertThresholds(input.deviceId),
-          db.getAlerts({ deviceId: input.deviceId, limit: 50 }),
-        ]);
-
-        const reportData: DeviceReportData = {
-          device,
-          readings,
-          thresholds,
-          alerts,
-          dateRange: {
-            start: new Date(input.startTime),
-            end: new Date(input.endTime),
-          },
-        };
-
-        const html = generateDeviceReportHtml(reportData);
-        return { html, filename: `device-report-${device.deviceId}-${Date.now()}.html` };
       }),
 
     analyticsReport: publicProcedure

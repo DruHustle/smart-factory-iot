@@ -3,15 +3,5 @@
 > NODE_ENV=development tsx watch server/_core/index.ts
 
 [WebSocket] Server initialized
-Server running on http://localhost:3000/
-[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
-
-[2m[245.00ms][22m [@tailwindcss/vite] Generate CSS (serve)
-[2m[138.93ms][22m  [2m ↳ [22mSetup compiler
-[2m[  2.13ms][22m  [2m ↳ [22mSetup scanner
-[2m[  9.79ms][22m  [2m ↳ [22mScan for candidates
-[2m[ 89.81ms][22m  [2m ↳ [22mBuild CSS
-[2m[  0.01ms][22m  [2m ↳ [22mBuild Source Map
-
-2:27:41 AM [vite] (client) hmr update /src/pages/Login.tsx
-2:27:43 AM [vite] (client) hmr update /src/pages/Login.tsx
+Port 3000 is busy, using port 3001 instead
+Server running on http://localhost:3001/
