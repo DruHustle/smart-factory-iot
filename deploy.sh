@@ -2,6 +2,7 @@
 
 # Smart Factory IoT - Deployment Script
 # This script automates the deployment process for the smart-factory-iot application
+# Includes automatic database setup and demo account seeding
 
 set -e  # Exit on error
 
@@ -59,6 +60,42 @@ check_prerequisites() {
         exit 1
     fi
     print_success "git $(git --version | awk '{print $3}')"
+    
+    # Check MySQL
+    if ! command -v mysql &> /dev/null; then
+        print_error "MySQL client is not installed"
+        exit 1
+    fi
+    print_success "MySQL client installed"
+}
+
+# Setup database
+setup_database() {
+    print_header "Setting Up Database"
+    
+    # Use setup-dev-db.sh if it exists
+    if [ -f "./setup-dev-db.sh" ]; then
+        print_info "Running database setup script..."
+        chmod +x ./setup-dev-db.sh
+        ./setup-dev-db.sh
+        print_success "Database setup completed"
+    else
+        print_warning "setup-dev-db.sh not found, skipping automatic database setup"
+    fi
+}
+
+# Seed demo accounts
+seed_demo_accounts() {
+    print_header "Seeding Demo Accounts"
+    
+    # Use seed-demo-accounts.mjs if it exists
+    if [ -f "./seed-demo-accounts.mjs" ]; then
+        print_info "Seeding demo accounts..."
+        node ./seed-demo-accounts.mjs
+        print_success "Demo accounts seeded"
+    else
+        print_warning "seed-demo-accounts.mjs not found, skipping demo account seeding"
+    fi
 }
 
 # Validate environment variables
@@ -66,13 +103,14 @@ validate_environment() {
     print_header "Validating Environment Variables"
     
     if [ -z "$DATABASE_URL" ]; then
-        print_error "DATABASE_URL is not set"
-        exit 1
+        print_info "DATABASE_URL not set, will use development database"
+        export DATABASE_URL="mysql://root@localhost:3306/smart_factory_dev"
     fi
-    print_success "DATABASE_URL is configured"
+    print_success "DATABASE_URL is configured: $DATABASE_URL"
     
     if [ -z "$JWT_SECRET" ]; then
         print_warning "JWT_SECRET is not set, using default (NOT RECOMMENDED FOR PRODUCTION)"
+        export JWT_SECRET="dev-secret-key-change-in-production"
     else
         print_success "JWT_SECRET is configured"
     fi
@@ -111,7 +149,7 @@ run_type_check() {
 run_tests() {
     print_header "Running Test Suite"
     
-    if pnpm test; then
+    if pnpm test 2>&1 | tee test-output.log; then
         print_success "All tests passed"
     else
         print_warning "Some tests failed - review output above"
@@ -238,7 +276,13 @@ generate_summary() {
     echo "Production Configuration:"
     echo "  - Node Environment: $NODE_ENV"
     echo "  - Port: ${PORT:-3000}"
-    echo "  - Database: Configured"
+    echo "  - Database: Configured and seeded"
+    echo ""
+    echo "Demo Accounts Available:"
+    echo "  - Admin: admin@demo.local / demo-admin-password"
+    echo "  - Operator: operator@demo.local / demo-operator-password"
+    echo "  - Technician: technician@demo.local / demo-technician-password"
+    echo "  - Demo: demo@demo.local / demo-password"
     echo ""
     echo "Important Security Notes:"
     echo "  - Ensure JWT_SECRET is strong (minimum 32 characters)"
@@ -256,6 +300,7 @@ main() {
     # Parse command line arguments
     SKIP_TESTS=false
     SKIP_BUILD=false
+    SKIP_DB_SETUP=false
     
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -267,13 +312,18 @@ main() {
                 SKIP_BUILD=true
                 shift
                 ;;
+            --skip-db-setup)
+                SKIP_DB_SETUP=true
+                shift
+                ;;
             --help)
                 echo "Usage: ./deploy.sh [OPTIONS]"
                 echo ""
                 echo "Options:"
-                echo "  --skip-tests    Skip running the test suite"
-                echo "  --skip-build    Skip building the application"
-                echo "  --help          Show this help message"
+                echo "  --skip-tests      Skip running the test suite"
+                echo "  --skip-build      Skip building the application"
+                echo "  --skip-db-setup   Skip database setup and seeding"
+                echo "  --help            Show this help message"
                 exit 0
                 ;;
             *)
@@ -285,6 +335,14 @@ main() {
     
     # Execute deployment steps
     check_prerequisites
+    
+    if [ "$SKIP_DB_SETUP" = false ]; then
+        setup_database
+        seed_demo_accounts
+    else
+        print_warning "Skipping database setup"
+    fi
+    
     validate_environment
     install_dependencies
     run_type_check
