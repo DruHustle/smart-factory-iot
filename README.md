@@ -1020,6 +1020,112 @@ pnpm check
 pnpm build
 ```
 
+## Quick Development Setup
+
+For the fastest way to get the application running with database and demo accounts:
+
+```bash
+# Make the dev script executable and run it
+chmod +x dev.sh
+./dev.sh
+```
+
+This script will:
+1. Check prerequisites (Node.js, pnpm, MySQL)
+2. Set up the development database
+3. Seed demo accounts
+4. Install dependencies
+5. Configure environment variables
+6. Start the development server
+
+The application will be available at `http://localhost:3000` with demo accounts ready to use.
+
+## Deployment
+
+### Using the Deploy Script
+
+For production deployment with automatic database setup:
+
+```bash
+# Full deployment with database setup
+chmod +x deploy.sh
+./deploy.sh
+
+# Skip database setup (use existing database)
+./deploy.sh --skip-db-setup
+
+# Skip tests
+./deploy.sh --skip-tests
+
+# Skip build
+./deploy.sh --skip-build
+
+# Show help
+./deploy.sh --help
+```
+
+### Deployment Features
+
+The `deploy.sh` script provides:
+- ✅ Automatic prerequisite validation
+- ✅ Environment variable validation
+- ✅ Automatic database setup and seeding
+- ✅ Dependency installation
+- ✅ TypeScript type checking
+- ✅ Comprehensive test suite execution
+- ✅ Production build creation
+- ✅ Build artifact verification
+- ✅ Database migrations
+- ✅ Health checks
+- ✅ Deployment summary with demo account credentials
+
+### Manual Deployment
+
+If you prefer manual setup:
+
+```bash
+# 1. Set up database
+./setup-dev-db.sh
+
+# 2. Configure environment
+cp .env.dev .env
+
+# 3. Install dependencies
+pnpm install
+
+# 4. Run tests
+pnpm test
+
+# 5. Build application
+pnpm build
+
+# 6. Start application
+pnpm start
+```
+
+### Production Environment Variables
+
+For production deployment, set these environment variables:
+
+```bash
+NODE_ENV=production
+DATABASE_URL=mysql://user:password@host:port/database
+JWT_SECRET=your-strong-secret-key-min-32-chars
+PORT=3000
+CORS_ORIGINS=https://yourdomain.com
+```
+
+### Demo Accounts
+
+After deployment, these demo accounts are available:
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | admin@demo.local | demo-admin-password |
+| Operator | operator@demo.local | demo-operator-password |
+| Technician | technician@demo.local | demo-technician-password |
+| Demo | demo@demo.local | demo-password |
+
 ## Contributing
 
 Contributions are welcome! Please follow these steps:
@@ -1043,14 +1149,18 @@ For support, please:
 3. Contact the author at [andrewgotora@yahoo.com](mailto:andrewgotora@yahoo.com)
 
 ## Changelog
-
 ### Version 2.0.0
+
 - Added comprehensive deployment guide
 - Added automated deployment script (`deploy.sh`)
+- Added development setup script (`dev.sh`)
 - Added test database setup script (`setup-test-db.sh`)
+- Added automatic database setup and seeding
 - Improved documentation
 - Enhanced error handling
 - Added production deployment checklist
+- Added demo account quick-fill buttons on login page
+- Added blurred industrial background to login page
 
 ### Version 1.0.0
 - Initial release
