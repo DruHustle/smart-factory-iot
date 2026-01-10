@@ -48,116 +48,75 @@
 
 :root {
   --radius: 0.5rem;
-  /* IMSOP Deep Space Blue Theme - Modern Tech Aesthetic */
-  --primary: oklch(0.72 0.15 200);
-  --primary-foreground: oklch(0.15 0.05 200);
-  --sidebar-primary: oklch(0.72 0.15 200);
-  --sidebar-primary-foreground: oklch(0.95 0.02 260);
   
-  /* Chart colors - IMSOP palette */
-  --chart-1: oklch(0.72 0.15 200);
-  --chart-2: oklch(0.65 0.20 289);
-  --chart-3: oklch(0.85 0.15 120);
-  --chart-4: oklch(0.55 0.15 20);
-  --chart-5: oklch(0.90 0.15 120);
+  /* Professional Dark Theme - IMSOP Inspired */
+  --background: oklch(0.08 0.002 280);
+  --foreground: oklch(0.95 0.01 280);
   
-  /* Dark background - Deep Space Blue */
-  --background: oklch(0.15 0.05 260);
-  --foreground: oklch(0.95 0.02 260);
+  --card: oklch(0.12 0.003 280);
+  --card-foreground: oklch(0.95 0.01 280);
   
-  /* Cards with glassmorphism effect */
-  --card: oklch(0.20 0.05 260 / 0.6);
-  --card-foreground: oklch(0.95 0.02 200);
+  --popover: oklch(0.12 0.003 280);
+  --popover-foreground: oklch(0.95 0.01 280);
   
-  /* Popover */
-  --popover: oklch(0.18 0.05 260);
-  --popover-foreground: oklch(0.95 0.02 260);
+  /* Cyan Primary - Professional Tech Color */
+  --primary: oklch(0.55 0.15 200);
+  --primary-foreground: oklch(0.98 0.01 280);
   
-  /* Secondary - Muted Purple */
-  --secondary: oklch(0.25 0.05 260 / 0.5);
-  --secondary-foreground: oklch(0.90 0.05 200);
+  --secondary: oklch(0.15 0.004 280);
+  --secondary-foreground: oklch(0.90 0.01 280);
   
-  /* Muted */
-  --muted: oklch(0.25 0.05 260 / 0.3);
-  --muted-foreground: oklch(0.90 0.05 200);
+  --muted: oklch(0.20 0.005 280);
+  --muted-foreground: oklch(0.70 0.01 280);
   
-  /* Accent - Neon Purple */
-  --accent: oklch(0.65 0.20 289);
-  --accent-foreground: oklch(0.95 0.02 260);
+  --accent: oklch(0.55 0.15 200);
+  --accent-foreground: oklch(0.98 0.01 280);
   
-  /* Destructive - Red/Orange */
-  --destructive: oklch(0.60 0.20 20);
-  --destructive-foreground: oklch(0.95 0.02 260);
+  --destructive: oklch(0.65 0.25 25);
+  --destructive-foreground: oklch(0.98 0.01 280);
   
-  /* Success - Green */
-  --success: oklch(0.55 0.18 145);
-  --success-foreground: oklch(0.98 0 0);
+  --border: oklch(0.18 0.004 280);
+  --input: oklch(0.12 0.003 280);
+  --ring: oklch(0.55 0.15 200);
   
-  /* Warning - Muted Orange with better contrast for eye comfort */
-  --warning: oklch(0.60 0.10 55);
-  --warning-foreground: oklch(0.98 0.01 55);
-  
-  /* Borders and inputs */
-  --border: oklch(0.95 0.02 260);
-  --input: oklch(0.95 0.02 260 / 0.1);
-  --ring: oklch(0.72 0.15 200);
+  /* Chart Colors - Professional Palette */
+  --chart-1: oklch(0.55 0.15 200);
+  --chart-2: oklch(0.65 0.20 150);
+  --chart-3: oklch(0.60 0.18 180);
+  --chart-4: oklch(0.70 0.15 120);
+  --chart-5: oklch(0.50 0.12 240);
   
   /* Sidebar */
-  --sidebar: oklch(0.12 0.05 260 / 0.8);
-  --sidebar-foreground: oklch(0.95 0.02 260);
-  --sidebar-accent: oklch(0.65 0.20 289);
-  --sidebar-accent-foreground: oklch(0.95 0.02 260);
-  --sidebar-border: oklch(0.95 0.02 260);
-  --sidebar-ring: oklch(0.95 0.02 260);
-}
-
-.dark {
-  /* IMSOP Deep Space Blue Theme - Same as root since we're using dark theme by default */
-  --primary: oklch(0.72 0.15 200);
-  --primary-foreground: oklch(0.15 0.05 200);
-  --sidebar-primary: oklch(0.72 0.15 200);
-  --sidebar-primary-foreground: oklch(0.95 0.02 260);
-  --background: oklch(0.15 0.05 260);
-  --foreground: oklch(0.95 0.02 260);
-  --card: oklch(0.20 0.05 260 / 0.6);
-  --card-foreground: oklch(0.95 0.02 200);
-  --popover: oklch(0.18 0.05 260);
-  --popover-foreground: oklch(0.95 0.02 260);
-  --secondary: oklch(0.25 0.05 260 / 0.5);
-  --secondary-foreground: oklch(0.90 0.05 200);
-  --muted: oklch(0.25 0.05 260 / 0.3);
-  --muted-foreground: oklch(0.90 0.05 200);
-  --accent: oklch(0.65 0.20 289);
-  --accent-foreground: oklch(0.95 0.02 260);
-  --destructive: oklch(0.60 0.20 20);
-  --destructive-foreground: oklch(0.95 0.02 260);
-  --success: oklch(0.55 0.18 145);
-  --success-foreground: oklch(0.98 0 0);
-  --warning: oklch(0.60 0.10 55);
-  --warning-foreground: oklch(0.98 0.01 55);
-  --border: oklch(0.95 0.02 260);
-  --input: oklch(0.95 0.02 260 / 0.1);
-  --ring: oklch(0.72 0.15 200);
-  --chart-1: oklch(0.72 0.15 200);
-  --chart-2: oklch(0.65 0.20 289);
-  --chart-3: oklch(0.85 0.15 120);
-  --chart-4: oklch(0.55 0.15 20);
-  --chart-5: oklch(0.90 0.15 120);
-  --sidebar: oklch(0.12 0.05 260 / 0.8);
-  --sidebar-foreground: oklch(0.95 0.02 260);
-  --sidebar-accent: oklch(0.65 0.20 289);
-  --sidebar-accent-foreground: oklch(0.95 0.02 260);
-  --sidebar-border: oklch(0.95 0.02 260);
-  --sidebar-ring: oklch(0.95 0.02 260);
+  --sidebar: oklch(0.10 0.002 280);
+  --sidebar-foreground: oklch(0.95 0.01 280);
+  --sidebar-primary: oklch(0.55 0.15 200);
+  --sidebar-primary-foreground: oklch(0.98 0.01 280);
+  --sidebar-accent: oklch(0.20 0.005 280);
+  --sidebar-accent-foreground: oklch(0.90 0.01 280);
+  --sidebar-border: oklch(0.15 0.003 280);
+  --sidebar-ring: oklch(0.55 0.15 200);
+  
+  /* Status Colors */
+  --success: oklch(0.65 0.20 150);
+  --success-foreground: oklch(0.98 0.01 280);
+  --warning: oklch(0.70 0.20 60);
+  --warning-foreground: oklch(0.98 0.01 280);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  
+  html {
+    @apply scroll-smooth;
+  }
+  
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rounding" 1;
   }
+  
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
   [type="button"]:not(:disabled),
@@ -169,9 +128,122 @@
   input[type="radio"]:not(:disabled) {
     @apply cursor-pointer;
   }
+  
+  /* Typography */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+  
+  h1 {
+    @apply text-3xl;
+  }
+  
+  h2 {
+    @apply text-2xl;
+  }
+  
+  h3 {
+    @apply text-xl;
+  }
+  
+  h4 {
+    @apply text-lg;
+  }
+  
+  /* Smooth transitions */
+  input, textarea, select {
+    @apply transition-colors duration-200;
+  }
 }
 
 @layer components {
+  /**
+   * Professional Card Component
+   * Follows Single Responsibility: Provides consistent card styling
+   */
+  .card-professional {
+    @apply bg-card border border-border rounded-lg p-6 shadow-sm transition-all duration-200 hover:shadow-md hover:border-border/60;
+  }
+  
+  /**
+   * Elevated Card with Depth
+   * Used for important content sections
+   */
+  .card-elevated {
+    @apply bg-card border border-border rounded-lg p-6 shadow-lg;
+  }
+  
+  /**
+   * Glass Morphism Effect
+   * Modern frosted glass appearance
+   */
+  .glass-effect {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg;
+  }
+  
+  /**
+   * Professional Button Styles
+   */
+  .btn-primary {
+    @apply px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium transition-all duration-200 hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary {
+    @apply px-4 py-2 rounded-lg bg-secondary text-secondary-foreground font-medium border border-border transition-all duration-200 hover:bg-secondary/80 active:scale-95 disabled:opacity-50;
+  }
+  
+  .btn-ghost {
+    @apply px-4 py-2 rounded-lg text-foreground font-medium transition-all duration-200 hover:bg-muted active:scale-95 disabled:opacity-50;
+  }
+  
+  /**
+   * Status Badge - Online
+   */
+  .badge-online {
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium bg-success/10 text-success;
+  }
+  
+  /**
+   * Status Badge - Offline
+   */
+  .badge-offline {
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium bg-muted/50 text-muted-foreground;
+  }
+  
+  /**
+   * Status Badge - Warning
+   */
+  .badge-warning {
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium bg-warning/10 text-warning;
+  }
+  
+  /**
+   * Status Badge - Critical
+   */
+  .badge-critical {
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium bg-destructive/10 text-destructive;
+  }
+  
+  /**
+   * Metric Display
+   * Shows KPI values with labels
+   */
+  .metric-display {
+    @apply flex flex-col gap-1;
+  }
+  
+  .metric-value {
+    @apply text-3xl font-bold text-primary;
+  }
+  
+  .metric-label {
+    @apply text-sm text-muted-foreground;
+  }
+  
+  /**
+   * Container Utility
+   * Centers content with responsive padding
+   */
   .container {
     width: 100%;
     margin-left: auto;
@@ -179,19 +251,19 @@
     padding-left: 1rem;
     padding-right: 1rem;
   }
-
+  
   .flex {
     min-height: 0;
     min-width: 0;
   }
-
+  
   @media (min-width: 640px) {
     .container {
       padding-left: 1.5rem;
       padding-right: 1.5rem;
     }
   }
-
+  
   @media (min-width: 1024px) {
     .container {
       padding-left: 2rem;
@@ -199,47 +271,80 @@
       max-width: 1280px;
     }
   }
+  
+  /**
+   * Smooth Animations
+   */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  @keyframes pulse-subtle {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.8;
+    }
+  }
+  
+  .animate-fadeInUp {
+    animation: fadeInUp 0.3s ease-out;
+  }
+  
+  .animate-slideInRight {
+    animation: slideInRight 0.3s ease-out;
+  }
+  
+  .animate-pulse-subtle {
+    animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  /**
+   * Gradient Backgrounds
+   */
+  .gradient-primary {
+    @apply bg-gradient-to-br from-primary/20 via-transparent to-transparent;
+  }
+  
+  .gradient-accent {
+    @apply bg-gradient-to-br from-accent/20 via-transparent to-transparent;
+  }
+}
 
-  /* Status indicator colors */
-  .status-online {
-    @apply bg-success text-success-foreground;
-  }
-  
-  .status-offline {
-    @apply bg-muted text-muted-foreground;
-  }
-  
-  .status-maintenance {
-    @apply bg-warning text-warning-foreground;
-  }
-  
-  .status-error {
-    @apply bg-destructive text-destructive-foreground;
-  }
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
 
-  /* Severity colors */
-  .severity-info {
-    @apply bg-primary/20 text-primary border-primary/30;
-  }
-  
-  .severity-warning {
-    @apply bg-warning/20 text-warning border-warning/30;
-  }
-  
-  .severity-critical {
-    @apply bg-destructive/20 text-destructive border-destructive/30;
-  }
+::-webkit-scrollbar-track {
+  background: oklch(0.12 0.003 280);
+}
 
-  /* Card glow effects for status */
-  .card-glow-success {
-    box-shadow: 0 0 20px oklch(0.55 0.18 145 / 0.15);
-  }
-  
-  .card-glow-warning {
-    box-shadow: 0 0 20px oklch(0.7 0.18 55 / 0.15);
-  }
-  
-  .card-glow-error {
-    box-shadow: 0 0 20px oklch(0.55 0.22 25 / 0.15);
-  }
+::-webkit-scrollbar-thumb {
+  background: oklch(0.30 0.01 280);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.40 0.01 280);
 }

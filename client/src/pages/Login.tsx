@@ -1,8 +1,14 @@
+/**
+ * Login Page Component
+ * 
+ * Professional login interface with demo account quick-fill buttons.
+ * Inspired by IMSOP design patterns with SOLID principles.
+ */
+
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Factory, Lock, Mail, Eye, EyeOff } from "lucide-react";
+import { Factory, Lock, Mail, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -43,101 +49,147 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-900/20 via-slate-950 to-slate-950" />
-      
-      <Card className="w-full max-w-md bg-slate-900/50 border-slate-800 backdrop-blur-xl relative z-10">
-        <CardHeader className="space-y-1 text-center">
+    <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
+      {/* Background Gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-background" />
+      <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl" />
+
+      {/* Content */}
+      <div className="relative z-10 w-full max-w-md px-4">
+        {/* Logo Section */}
+        <div className="text-center mb-8 animate-fadeInUp">
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 rounded-lg bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <Factory className="w-7 h-7 text-white" />
+            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
+              <Factory className="w-8 h-8 text-white" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight text-white">Smart Factory IoT</CardTitle>
-          <CardDescription className="text-slate-400">
-            Sign in to access the factory monitoring dashboard
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <form onSubmit={handleLogin} className="space-y-4">
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            Smart Factory IoT
+          </h1>
+          <p className="text-muted-foreground">
+            Industrial Monitoring & Control Platform
+          </p>
+        </div>
+
+        {/* Login Card */}
+        <div className="glass-effect p-8 animate-slideInRight">
+          <form onSubmit={handleLogin} className="space-y-5">
+            {/* Email Field */}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-slate-300">Email</Label>
+              <Label htmlFor="email" className="text-foreground font-medium">
+                Email Address
+              </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="email"
                   type="email"
-                  placeholder="name@factory.com"
+                  placeholder="admin@factory.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-600"
+                  className="pl-10 bg-input border-border text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
                   required
                 />
               </div>
             </div>
-            
+
+            {/* Password Field */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-slate-300">Password</Label>
-              </div>
+              <Label htmlFor="password" className="text-foreground font-medium">
+                Password
+              </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10 bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-600"
+                  className="pl-10 pr-10 bg-input border-border text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
-            
-            <Button 
+
+            {/* Sign In Button */}
+            <Button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold"
+              className="w-full btn-primary group"
             >
-              {isLoading ? "Signing in..." : "Sign In"}
+              {isLoading ? (
+                "Signing in..."
+              ) : (
+                <>
+                  Sign In
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
             </Button>
           </form>
-          
-          <div className="text-center text-sm">
-            <span className="text-slate-400">Don't have an account? </span>
-            <button 
-              onClick={() => navigate("/register")}
-              className="text-blue-400 hover:text-blue-300 font-medium"
-            >
-              Register
-            </button>
-          </div>
-          
-          <div className="border-t border-slate-800 pt-6">
-            <p className="text-center text-sm text-slate-400 mb-3">Demo Accounts (click to fill):</p>
-            <div className="grid grid-cols-2 gap-2">
-              {DEMO_ACCOUNTS.map((account) => (
-                <button
-                  key={account.email}
-                  type="button"
-                  onClick={() => fillDemoAccount(account.email, account.password, account.label)}
-                  className="px-3 py-2 text-sm rounded-md bg-slate-800/50 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 hover:border-slate-600 transition-colors"
-                  title={account.description}
-                >
-                  {account.label}
-                </button>
-              ))}
+
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border/50" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-card text-muted-foreground">
+                Demo Accounts
+              </span>
             </div>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Demo Account Buttons */}
+          <div className="grid grid-cols-2 gap-3">
+            {DEMO_ACCOUNTS.map((account) => (
+              <button
+                key={account.email}
+                type="button"
+                onClick={() =>
+                  fillDemoAccount(account.email, account.password, account.label)
+                }
+                className="px-3 py-2.5 rounded-lg bg-secondary/50 hover:bg-secondary text-foreground border border-border hover:border-primary/50 transition-all duration-200 text-sm font-medium group"
+                title={account.description}
+              >
+                <span className="group-hover:text-primary transition-colors">
+                  {account.label}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Footer */}
+          <div className="mt-6 text-center text-sm">
+            <span className="text-muted-foreground">Don't have an account? </span>
+            <button
+              type="button"
+              onClick={() => navigate("/register")}
+              className="text-primary hover:text-primary/80 font-medium transition-colors"
+            >
+              Register here
+            </button>
+          </div>
+        </div>
+
+        {/* Security Footer */}
+        <div className="mt-6 text-center text-xs text-muted-foreground">
+          <p>🔒 Secure login with encrypted connection</p>
+        </div>
+      </div>
     </div>
   );
 }
