@@ -18,13 +18,15 @@ export interface MockAuthResult {
 /**
  * Mock user data for demo accounts
  */
-const MOCK_USERS: Record<string, User> = {
+const USERS_KEY = 'smart_factory_users';
+
+const INITIAL_USERS: Record<string, User> = {
   'admin@dev.local': {
     id: 1,
     openId: 'dev-admin',
     name: 'Dev Admin',
     email: 'admin@dev.local',
-    password: '$2b$10$nfvduvUJ1PgldBqQEk93GuWPAeL2HlfrlHsGqheEmAyiRpP6vpOiu',
+    password: 'admin123',
     loginMethod: 'email',
     role: 'admin',
     createdAt: new Date(),
@@ -36,7 +38,7 @@ const MOCK_USERS: Record<string, User> = {
     openId: 'dev-operator',
     name: 'Dev Operator',
     email: 'operator@dev.local',
-    password: '$2b$10$nfvduvUJ1PgldBqQEk93GuWPAeL2HlfrlHsGqheEmAyiRpP6vpOiu',
+    password: 'operator123',
     loginMethod: 'email',
     role: 'user',
     createdAt: new Date(),
@@ -48,7 +50,7 @@ const MOCK_USERS: Record<string, User> = {
     openId: 'dev-tech',
     name: 'Dev Technician',
     email: 'tech@dev.local',
-    password: '$2b$10$nfvduvUJ1PgldBqQEk93GuWPAeL2HlfrlHsGqheEmAyiRpP6vpOiu',
+    password: 'tech123',
     loginMethod: 'email',
     role: 'user',
     createdAt: new Date(),
@@ -56,6 +58,21 @@ const MOCK_USERS: Record<string, User> = {
     lastSignedIn: new Date(),
   },
 };
+
+function getStoredUsers(): Record<string, User> {
+  if (typeof window === 'undefined') return INITIAL_USERS;
+  const stored = localStorage.getItem(USERS_KEY);
+  if (!stored) {
+    localStorage.setItem(USERS_KEY, JSON.stringify(INITIAL_USERS));
+    return INITIAL_USERS;
+  }
+  return JSON.parse(stored);
+}
+
+function saveStoredUsers(users: Record<string, User>): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
 
 /**
  * Generate a mock JWT token
@@ -76,26 +93,13 @@ function generateMockToken(email: string): string {
 export async function mockLogin(email: string, password: string): Promise<MockAuthResult> {
   await new Promise(resolve => setTimeout(resolve, 500));
 
-  const demoAccount = DEMO_ACCOUNTS.find(acc => acc.email === email);
-  if (!demoAccount) {
+  const users = getStoredUsers();
+  const user = users[email];
+  
+  if (!user || user.password !== password) {
     return {
       success: false,
       error: 'Invalid email or password',
-    };
-  }
-
-  if (password !== demoAccount.password) {
-    return {
-      success: false,
-      error: 'Invalid email or password',
-    };
-  }
-
-  const user = MOCK_USERS[email];
-  if (!user) {
-    return {
-      success: false,
-      error: 'User not found',
     };
   }
 
@@ -118,14 +122,15 @@ export async function mockRegister(
 ): Promise<MockAuthResult> {
   await new Promise(resolve => setTimeout(resolve, 500));
 
-  if (MOCK_USERS[email]) {
+  const users = getStoredUsers();
+  if (users[email]) {
     return {
       success: false,
       error: 'Email already registered',
     };
   }
 
-  const id = Object.keys(MOCK_USERS).length + 1;
+  const id = Object.keys(users).length + 1;
   const newUser: User = {
     id,
     openId: `user-${id}`,
@@ -139,7 +144,8 @@ export async function mockRegister(
     lastSignedIn: new Date(),
   };
 
-  MOCK_USERS[email] = newUser;
+  users[email] = newUser;
+  saveStoredUsers(users);
 
   const token = generateMockToken(email);
 
@@ -167,7 +173,8 @@ export async function mockGetCurrentUser(token: string): Promise<MockAuthResult>
     const payload = JSON.parse(
       Buffer.from(token.replace('mock_', ''), 'base64').toString()
     );
-    const user = MOCK_USERS[payload.email];
+    const users = getStoredUsers();
+    const user = users[payload.email];
 
     if (!user) {
       return {

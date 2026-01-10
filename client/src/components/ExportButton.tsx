@@ -47,11 +47,27 @@ export function ExportButton({
         if (printWindow) {
           printWindow.document.write(html);
           printWindow.document.close();
-          // Add print styles and trigger print dialog
-          printWindow.onload = () => {
+          // Add a print button for the user to trigger the PDF download
+          const printBtn = printWindow.document.createElement("button");
+          printBtn.innerHTML = "Download as PDF";
+          printBtn.style.position = "fixed";
+          printBtn.style.top = "20px";
+          printBtn.style.right = "20px";
+          printBtn.style.padding = "10px 20px";
+          printBtn.style.backgroundColor = "#f97316";
+          printBtn.style.color = "white";
+          printBtn.style.border = "none";
+          printBtn.style.borderRadius = "5px";
+          printBtn.style.cursor = "pointer";
+          printBtn.style.fontWeight = "bold";
+          printBtn.style.zIndex = "1000";
+          printBtn.onclick = () => {
+            printBtn.style.display = "none";
             printWindow.print();
+            printBtn.style.display = "block";
           };
-          toast.success("Print dialog opened - save as PDF");
+          printWindow.document.body.appendChild(printBtn);
+          toast.success("Report preview opened");
         } else {
           toast.error("Please allow popups to export PDF");
         }

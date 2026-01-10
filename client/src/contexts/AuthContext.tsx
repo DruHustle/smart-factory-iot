@@ -22,7 +22,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const isGitHubPages = isGitHubPagesDeployment();
+  const isGitHubPages = true; // Force mock auth for demo purposes
 
   useEffect(() => {
     const initializeAuth = async () => {

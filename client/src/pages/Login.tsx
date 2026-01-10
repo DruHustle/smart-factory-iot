@@ -146,6 +146,16 @@ export default function Login() {
             </Button>
           </form>
 
+          <div className="text-center text-sm">
+            <span className="text-muted-foreground">Don't have an account? </span>
+            <button
+              onClick={() => navigate('/register')}
+              className="text-primary hover:underline font-semibold"
+            >
+              Sign Up
+            </button>
+          </div>
+
           {/* Demo Accounts Section */}
           <div className="space-y-3">
             <p className="text-xs text-center text-muted-foreground">
