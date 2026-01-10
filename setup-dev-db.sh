@@ -151,8 +151,8 @@ CREATE TABLE IF NOT EXISTS alert_thresholds (
     id INT PRIMARY KEY AUTO_INCREMENT,
     deviceId VARCHAR(255),
     metric VARCHAR(255),
-    minValue FLOAT,
-    maxValue FLOAT,
+    `minValue` FLOAT,
+    `maxValue` FLOAT,
     warningMin FLOAT,
     warningMax FLOAT,
     enabled BOOLEAN DEFAULT true,
@@ -269,7 +269,7 @@ INSERT INTO sensor_readings (deviceId, temperature, humidity, vibration, power, 
 ('DEV-SENSOR-004', 25.2, 46.0, 0.15, 98.0, 1.02, 1480, NOW());
 
 -- Insert development alert thresholds
-INSERT INTO alert_thresholds (deviceId, metric, minValue, maxValue, warningMin, warningMax, enabled) VALUES
+INSERT INTO alert_thresholds (deviceId, metric, `minValue`, `maxValue`, warningMin, warningMax, enabled) VALUES
 ('DEV-SENSOR-001', 'temperature', 15.0, 35.0, 20.0, 30.0, true),
 ('DEV-SENSOR-002', 'humidity', 30.0, 60.0, 40.0, 55.0, true),
 ('DEV-SENSOR-003', 'pressure', 0.8, 1.2, 0.9, 1.1, true),
