@@ -67,6 +67,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!result.success) {
           return { success: false, error: result.error };
         }
+        // Store token in localStorage for demo accounts
+        if (result.token) {
+          localStorage.setItem("token", result.token);
+        }
       } else {
         // Use real backend
         result = await apiLogin(email, password);
