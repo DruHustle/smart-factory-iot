@@ -12,6 +12,7 @@ import type { User } from "../../../drizzle/schema";
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
+  isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
@@ -143,7 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, register }}>
+    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, logout, register }}>
       {children}
     </AuthContext.Provider>
   );
