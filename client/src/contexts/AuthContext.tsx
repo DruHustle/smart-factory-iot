@@ -95,6 +95,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!result.success) {
           return { success: false, error: result.error };
         }
+        // Store token in localStorage for demo accounts
+        if (result.token) {
+          localStorage.setItem("token", result.token);
+        }
+        // Set user after registration
+        setUser(result.user || null);
         return { success: true };
       } else {
         // Use real backend
@@ -102,6 +108,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!result.success) {
           return { success: false, error: result.error };
         }
+        // Set user after registration
+        setUser(result.user || null);
         return { success: true };
       }
     } catch (error: any) {
