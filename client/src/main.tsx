@@ -9,10 +9,19 @@ import "./index.css";
 
 const queryClient = new QueryClient();
 
+const getTRPCUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL;
+  if (apiUrl) {
+    return `${apiUrl}/trpc`;
+  }
+  // Fallback for relative paths
+  return "/api/trpc";
+};
+
 const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
-      url: "/api/trpc",
+      url: getTRPCUrl(),
       transformer: superjson,
       fetch(input, init) {
         // Try localStorage first, then sessionStorage, then in-memory
@@ -33,6 +42,13 @@ const trpcClient = trpc.createClient({
     }),
   ],
 });
+
+// Handle GitHub Pages redirect
+const redirect = sessionStorage.getItem('redirect');
+if (redirect) {
+  sessionStorage.removeItem('redirect');
+  window.history.replaceState(null, '', redirect);
+}
 
 createRoot(document.getElementById("root")!).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>

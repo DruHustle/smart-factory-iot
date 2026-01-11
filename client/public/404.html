@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>Smart Factory IoT Dashboard</title>
+    <script>
+      // Redirect all 404s to the index.html
+      // This is needed for single-page applications on GitHub Pages
+      // to handle client-side routing properly
+      var path = window.location.pathname;
+      var basePath = '/smart-factory-iot/';
+      
+      // Remove the base path to get the route
+      var route = path.replace(basePath, '');
+      
+      // If it's not a static asset, redirect to index.html with the route preserved
+      if (!route.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/)) {
+        // Store the intended path and redirect to index.html
+        sessionStorage.setItem('redirect', basePath + route);
+        window.location.href = basePath + 'index.html';
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
