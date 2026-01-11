@@ -57,6 +57,18 @@ const INITIAL_USERS: Record<string, User> = {
     updatedAt: new Date(),
     lastSignedIn: new Date(),
   },
+  'demo@dev.local': {
+    id: 4,
+    openId: 'dev-demo',
+    name: 'Demo User',
+    email: 'demo@dev.local',
+    password: 'password123',
+    loginMethod: 'email',
+    role: 'user',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    lastSignedIn: new Date(),
+  },
 };
 
 function getStoredUsers(): Record<string, User> {
