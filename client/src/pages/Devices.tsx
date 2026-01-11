@@ -31,6 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { trpc } from "@/lib/trpc";
 import {
   Cpu,
   Search,
@@ -38,6 +39,7 @@ import {
   Settings,
   Trash2,
   Eye,
+  RefreshCw,
   Plus,
 } from "lucide-react";
 import { useState } from "react";
@@ -47,17 +49,6 @@ import ThresholdConfigDialog from "@/components/ThresholdConfigDialog";
 
 type DeviceStatus = "online" | "offline" | "maintenance" | "error";
 type DeviceType = "sensor" | "actuator" | "controller" | "gateway";
-
-interface Device {
-  id: number;
-  name: string;
-  deviceId: string;
-  type: DeviceType;
-  status: DeviceStatus;
-  zone?: string;
-  firmwareVersion?: string;
-  lastSeen?: Date;
-}
 
 const statusColors: Record<DeviceStatus, string> = {
   online: "bg-success text-success-foreground",
@@ -73,70 +64,6 @@ const typeColors: Record<DeviceType, string> = {
   gateway: "bg-chart-4/20 text-chart-4 border-chart-4/30",
 };
 
-// Mock devices data
-const mockDevices: Device[] = [
-  {
-    id: 1,
-    name: "Pump Unit A",
-    deviceId: "PUMP-001",
-    type: "actuator",
-    status: "online",
-    zone: "Zone 1",
-    firmwareVersion: "2.1.0",
-    lastSeen: new Date(Date.now() - 5 * 60000),
-  },
-  {
-    id: 2,
-    name: "Temperature Sensor B1",
-    deviceId: "TEMP-001",
-    type: "sensor",
-    status: "online",
-    zone: "Zone 1",
-    firmwareVersion: "1.5.2",
-    lastSeen: new Date(Date.now() - 2 * 60000),
-  },
-  {
-    id: 3,
-    name: "Pressure Sensor B2",
-    deviceId: "PRESS-001",
-    type: "sensor",
-    status: "online",
-    zone: "Zone 2",
-    firmwareVersion: "1.5.2",
-    lastSeen: new Date(Date.now() - 1 * 60000),
-  },
-  {
-    id: 4,
-    name: "Motor Controller C",
-    deviceId: "MOTOR-001",
-    type: "controller",
-    status: "maintenance",
-    zone: "Zone 2",
-    firmwareVersion: "3.0.1",
-    lastSeen: new Date(Date.now() - 30 * 60000),
-  },
-  {
-    id: 5,
-    name: "Gateway Hub D",
-    deviceId: "GATE-001",
-    type: "gateway",
-    status: "online",
-    zone: "Central",
-    firmwareVersion: "4.2.0",
-    lastSeen: new Date(Date.now() - 10000),
-  },
-  {
-    id: 6,
-    name: "Humidity Sensor E",
-    deviceId: "HUM-001",
-    type: "sensor",
-    status: "offline",
-    zone: "Zone 3",
-    firmwareVersion: "1.4.0",
-    lastSeen: new Date(Date.now() - 2 * 3600000),
-  },
-];
-
 export default function Devices() {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
@@ -146,26 +73,36 @@ export default function Devices() {
   const [selectedDevice, setSelectedDevice] = useState<number | null>(null);
   const [thresholdDialogOpen, setThresholdDialogOpen] = useState(false);
   const [thresholdDeviceId, setThresholdDeviceId] = useState<number | null>(null);
-  const [devices, setDevices] = useState<Device[]>(mockDevices);
 
-  const filteredDevices = devices.filter((device) => {
-    const matchesSearch =
+  const utils = trpc.useUtils();
+
+  const { data: devices, isLoading } = trpc.devices.list.useQuery({
+    status: statusFilter !== "all" ? (statusFilter as DeviceStatus) : undefined,
+    type: typeFilter !== "all" ? (typeFilter as DeviceType) : undefined,
+  });
+
+  const deleteMutation = trpc.devices.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Device deleted successfully");
+      utils.devices.list.invalidate();
+      setDeleteDialogOpen(false);
+      setSelectedDevice(null);
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete device: ${error.message}`);
+    },
+  });
+
+  const filteredDevices = devices?.filter(
+    (device) =>
       device.name.toLowerCase().includes(search.toLowerCase()) ||
       device.deviceId.toLowerCase().includes(search.toLowerCase()) ||
-      device.zone?.toLowerCase().includes(search.toLowerCase());
-
-    const matchesStatus = statusFilter === "all" || device.status === statusFilter;
-    const matchesType = typeFilter === "all" || device.type === typeFilter;
-
-    return matchesSearch && matchesStatus && matchesType;
-  });
+      device.zone?.toLowerCase().includes(search.toLowerCase())
+  );
 
   const handleDelete = () => {
     if (selectedDevice) {
-      setDevices(devices.filter((d) => d.id !== selectedDevice));
-      toast.success("Device deleted successfully");
-      setDeleteDialogOpen(false);
-      setSelectedDevice(null);
+      deleteMutation.mutate({ id: selectedDevice });
     }
   };
 
@@ -235,11 +172,15 @@ export default function Devices() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Cpu className="h-5 w-5 text-primary" />
-            Devices ({filteredDevices.length})
+            Devices ({filteredDevices?.length ?? 0})
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {filteredDevices.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredDevices?.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
               <Cpu className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No devices found</h3>
@@ -264,7 +205,7 @@ export default function Devices() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredDevices.map((device) => (
+                  {filteredDevices?.map((device) => (
                     <TableRow key={device.id}>
                       <TableCell>
                         <div>
@@ -277,13 +218,13 @@ export default function Devices() {
                       <TableCell>
                         <Badge
                           variant="outline"
-                          className={typeColors[device.type]}
+                          className={typeColors[device.type as DeviceType]}
                         >
                           {device.type}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={statusColors[device.status]}>
+                        <Badge className={statusColors[device.status as DeviceStatus]}>
                           {device.status}
                         </Badge>
                       </TableCell>
@@ -364,8 +305,9 @@ export default function Devices() {
             <Button
               variant="destructive"
               onClick={handleDelete}
+              disabled={deleteMutation.isPending}
             >
-              Delete
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>

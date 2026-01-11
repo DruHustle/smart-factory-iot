@@ -34,6 +34,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { trpc } from "@/lib/trpc";
 import {
   Download,
   Upload,
@@ -91,13 +92,19 @@ export default function OTAUpdates() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const [selectedFirmwareId, setSelectedFirmwareId] = useState<string>("");
 
+  const utils = trpc.useUtils();
 
+  const { data: deployments, isLoading, refetch } = trpc.ota.list.useQuery({
     limit: 50,
   });
 
+  const { data: devices } = trpc.devices.list.useQuery();
+  const { data: firmwareVersions } = trpc.firmware.list.useQuery();
 
+  const deployMutation = trpc.ota.deploy.useMutation({
     onSuccess: () => {
       toast.success("Deployment initiated successfully");
+      utils.ota.list.invalidate();
       setDeployDialogOpen(false);
       setSelectedDeviceId("");
       setSelectedFirmwareId("");
@@ -107,8 +114,11 @@ export default function OTAUpdates() {
     },
   });
 
+  const rollbackMutation = trpc.ota.rollback.useMutation({
     onSuccess: (data) => {
       toast.success(`Rolled back to version ${data.restoredVersion}`);
+      utils.ota.list.invalidate();
+      utils.devices.list.invalidate();
       setRollbackDialogOpen(false);
       setSelectedDeployment(null);
     },
@@ -122,6 +132,7 @@ export default function OTAUpdates() {
       toast.error("Please select a device and firmware version");
       return;
     }
+    deployMutation.mutate({
       deviceId: parseInt(selectedDeviceId),
       firmwareVersionId: parseInt(selectedFirmwareId),
     });
@@ -129,6 +140,7 @@ export default function OTAUpdates() {
 
   const handleRollback = () => {
     if (selectedDeployment) {
+      rollbackMutation.mutate({ deploymentId: selectedDeployment.id });
     }
   };
 
@@ -456,6 +468,8 @@ export default function OTAUpdates() {
             <Button variant="outline" onClick={() => setDeployDialogOpen(false)}>
               Cancel
             </Button>
+            <Button onClick={handleDeploy} disabled={deployMutation.isPending}>
+              {deployMutation.isPending ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                   Deploying...
@@ -494,7 +508,9 @@ export default function OTAUpdates() {
             <Button
               variant="destructive"
               onClick={handleRollback}
+              disabled={rollbackMutation.isPending}
             >
+              {rollbackMutation.isPending ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                   Rolling back...

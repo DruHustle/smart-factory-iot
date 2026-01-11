@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { trpc } from "@/lib/trpc";
 import {
   AlertTriangle,
   CheckCircle,
@@ -62,15 +63,22 @@ export default function Alerts() {
   const [statusFilter, setStatusFilter] = useState<string>("active");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
 
+  const utils = trpc.useUtils();
 
+  const { data: alerts, isLoading, refetch } = trpc.alerts.list.useQuery({
     status: statusFilter !== "all" ? (statusFilter as AlertStatus) : undefined,
     severity: severityFilter !== "all" ? (severityFilter as AlertSeverity) : undefined,
   });
 
+  const { data: alertStats } = trpc.alerts.getStats.useQuery();
 
+  const { data: devices } = trpc.devices.list.useQuery();
 
+  const updateStatusMutation = trpc.alerts.updateStatus.useMutation({
     onSuccess: () => {
       toast.success("Alert status updated");
+      utils.alerts.list.invalidate();
+      utils.alerts.getStats.invalidate();
     },
     onError: (error) => {
       toast.error(`Failed to update alert: ${error.message}`);
@@ -83,9 +91,11 @@ export default function Alerts() {
   };
 
   const handleAcknowledge = (alertId: number) => {
+    updateStatusMutation.mutate({ id: alertId, status: "acknowledged" });
   };
 
   const handleResolve = (alertId: number) => {
+    updateStatusMutation.mutate({ id: alertId, status: "resolved" });
   };
 
   return (

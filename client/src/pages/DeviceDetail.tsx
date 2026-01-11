@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { trpc } from "@/lib/trpc";
 import {
   ArrowLeft,
   Thermometer,
@@ -102,17 +103,21 @@ export default function DeviceDetail() {
     return { startTime: now - ranges[timeRange], endTime: now };
   }, [timeRange, customDateRange]);
 
+  const { data: device, isLoading: deviceLoading } = trpc.devices.getById.useQuery({
     id: deviceId,
   });
 
+  const { data: readings, isLoading: readingsLoading, refetch } = trpc.readings.getForDevice.useQuery(
     { deviceId, startTime, endTime },
     { enabled: !!device }
   );
 
+  const { data: thresholds } = trpc.thresholds.getForDevice.useQuery(
     { deviceId },
     { enabled: !!device }
   );
 
+  const { data: latestReading } = trpc.readings.getLatest.useQuery(
     { deviceId },
     { enabled: !!device, refetchInterval: 10000 }
   );
@@ -140,8 +145,10 @@ export default function DeviceDetail() {
     );
   };
 
+  const exportMutation = trpc.export.deviceReport.useMutation();
 
   const handleExport = async () => {
+    const result = await exportMutation.mutateAsync({
       deviceId,
       startTime,
       endTime,
