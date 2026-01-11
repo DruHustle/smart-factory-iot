@@ -96,7 +96,9 @@ function generateMockToken(email: string): string {
     exp: Math.floor(Date.now() / 1000) + 86400,
   };
   
-  return 'mock_' + Buffer.from(JSON.stringify(payload)).toString('base64');
+  const jsonString = JSON.stringify(payload);
+  const base64 = btoa(unescape(encodeURIComponent(jsonString)));
+  return 'mock_' + base64;
 }
 
 /**
@@ -182,9 +184,9 @@ export async function mockGetCurrentUser(token: string): Promise<MockAuthResult>
   }
 
   try {
-    const payload = JSON.parse(
-      Buffer.from(token.replace('mock_', ''), 'base64').toString()
-    );
+    const base64String = token.replace('mock_', '');
+    const jsonString = decodeURIComponent(escape(atob(base64String)));
+    const payload = JSON.parse(jsonString);
     const users = getStoredUsers();
     const user = users[payload.email];
 
