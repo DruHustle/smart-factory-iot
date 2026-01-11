@@ -26,10 +26,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      if (isGitHubPages) {
-        // For GitHub Pages, check localStorage for token and validate it
-        const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token");
 
+      if (token && token.startsWith('mock_')) {
+        // If it's a mock token, always use mock auth
+        const result = await mockGetCurrentUser(token);
+        if (result.success && result.user) {
+          setUser(result.user);
+        } else {
+          localStorage.removeItem("token");
+          setUser(null);
+        }
+      } else if (isGitHubPages) {
+        // For GitHub Pages with no mock token
         if (token) {
           const result = await mockGetCurrentUser(token);
           if (result.success && result.user) {
@@ -61,7 +70,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       let result;
 
-      if (isGitHubPages) {
+      // Check if it's a demo account - always use mock auth for demo accounts
+      const isDemo = email.endsWith('@dev.local');
+
+      if (isGitHubPages || isDemo) {
         // Use mock auth
         result = await mockLogin(email, password);
         if (!result.success) {
