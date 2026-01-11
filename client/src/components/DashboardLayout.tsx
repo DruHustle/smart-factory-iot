@@ -190,7 +190,9 @@ function DashboardLayoutContent({
               </button>
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
-                  <Factory className="h-5 w-5 text-primary shrink-0" />
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-orange-500 flex items-center justify-center shadow-[0_0_20px_var(--primary)] shrink-0">
+                    <Factory className="w-5 h-5 text-primary-foreground" />
+                  </div>
                   <span className="font-semibold tracking-tight truncate text-sidebar-foreground">
                     Factory IoT
                   </span>
