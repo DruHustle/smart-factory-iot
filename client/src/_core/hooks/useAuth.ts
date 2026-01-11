@@ -1,5 +1,4 @@
 import { getLoginUrl } from "@/const";
-import { trpc } from "@/lib/trpc";
 import { safeLocalStorage } from "@/lib/storage";
 import { TRPCClientError } from "@trpc/client";
 import { useCallback, useEffect, useMemo } from "react";

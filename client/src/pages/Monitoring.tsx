@@ -9,7 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { trpc } from "@/lib/trpc";
 import {
   Activity,
   Thermometer,
@@ -37,7 +36,6 @@ export default function Monitoring() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
-  const { data: devices, isLoading, refetch } = trpc.devices.list.useQuery(
     {
       status: statusFilter !== "all" ? (statusFilter as DeviceStatus) : undefined,
       type: typeFilter !== "all" ? (typeFilter as "sensor" | "actuator" | "controller" | "gateway") : undefined,
@@ -168,7 +166,6 @@ function DeviceCard({
   };
   onClick: () => void;
 }) {
-  const { data: latestReading } = trpc.readings.getLatest.useQuery(
     { deviceId: device.id },
     { refetchInterval: 10000 } // Refresh every 10 seconds
   );

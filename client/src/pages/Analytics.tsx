@@ -13,7 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { trpc } from "@/lib/trpc";
 import {
   BarChart3,
   CalendarIcon,
@@ -74,15 +73,12 @@ export default function Analytics() {
     return { startTime: now - ranges[timeRange], endTime: now };
   }, [timeRange, customDateRange]);
 
-  const { data: oeeMetrics, isLoading: oeeLoading } = trpc.analytics.getOEEMetrics.useQuery();
 
-  const { data: energyData, isLoading: energyLoading, refetch } = trpc.analytics.getEnergyConsumption.useQuery({
     startTime,
     endTime,
     intervalMs: timeRange === "24h" ? 3600000 : 86400000, // 1 hour or 1 day
   });
 
-  const { data: deviceStats } = trpc.devices.getStats.useQuery();
 
   const chartData = useMemo(() => {
     if (!energyData) return [];
@@ -104,10 +100,8 @@ export default function Analytics() {
     }));
   }, [deviceStats]);
 
-  const exportMutation = trpc.export.analyticsReport.useMutation();
 
   const handleExport = async () => {
-    const result = await exportMutation.mutateAsync({
       startTime,
       endTime,
     });

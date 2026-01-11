@@ -15,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { trpc } from "@/lib/trpc";
 import {
   History,
   Search,
@@ -63,11 +62,9 @@ export default function AlertHistory() {
     to: Date | undefined;
   }>({ from: undefined, to: undefined });
 
-  const { data: alerts, isLoading, refetch } = trpc.alerts.list.useQuery({
     limit: 500,
   });
 
-  const { data: devices } = trpc.devices.list.useQuery();
 
   const getDeviceName = (deviceId: number) => {
     const device = devices?.find((d) => d.id === deviceId);
@@ -117,12 +114,10 @@ export default function AlertHistory() {
     return groups;
   }, [filteredAlerts]);
 
-  const exportMutation = trpc.export.alertHistoryReport.useMutation();
 
   const handleExport = async () => {
     const now = Date.now();
     const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
-    const result = await exportMutation.mutateAsync({
       startTime: dateRange.from?.getTime() ?? thirtyDaysAgo,
       endTime: dateRange.to?.getTime() ?? now,
       severity: severityFilter !== "all" ? (severityFilter as "info" | "warning" | "critical") : undefined,
