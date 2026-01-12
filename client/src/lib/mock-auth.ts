@@ -5,6 +5,8 @@
  */
 
 import type { User } from "../../../drizzle/schema";
+// Integrated safeLocalStorage to prevent Safari-specific storage errors
+import { safeLocalStorage } from "./storage";
 
 export interface MockAuthResult {
   success: boolean;
@@ -66,19 +68,41 @@ const INITIAL_USERS: Record<string, User> = {
   },
 };
 
+/**
+ * Retrieves users from storage and merges them with INITIAL_USERS.
+ * This guarantees that hardcoded accounts always work regardless of
+ * what is currently saved in the browser's persistent storage.
+ */
 function getStoredUsers(): Record<string, User> {
+  // Check for SSR environment
   if (typeof window === 'undefined') return INITIAL_USERS;
-  const stored = localStorage.getItem(USERS_KEY);
+
+  // Use the safe wrapper instead of raw localStorage
+  const stored = safeLocalStorage.getItem(USERS_KEY);
+  
   if (!stored) {
-    localStorage.setItem(USERS_KEY, JSON.stringify(INITIAL_USERS));
+    safeLocalStorage.setItem(USERS_KEY, JSON.stringify(INITIAL_USERS));
     return INITIAL_USERS;
   }
-  return JSON.parse(stored);
+
+  try {
+    const parsedStored = JSON.parse(stored);
+    
+    // THE FIX: Merge stored users with INITIAL_USERS.
+    // INITIAL_USERS comes last, so it overrides any stale data for those specific emails.
+    return {
+      ...parsedStored,
+      ...INITIAL_USERS
+    };
+  } catch (e) {
+    console.error("Failed to parse stored users, resetting to initial", e);
+    return INITIAL_USERS;
+  }
 }
 
 function saveStoredUsers(users: Record<string, User>): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  safeLocalStorage.setItem(USERS_KEY, JSON.stringify(users));
 }
 
 /**
@@ -93,12 +117,11 @@ function generateMockToken(email: string): string {
   
   const jsonString = JSON.stringify(payload);
   const base64 = btoa(unescape(encodeURIComponent(jsonString)));
-  // This prefix is what the AuthContext uses to distinguish MOCK vs REAL
-  return 'mock_' + base64;
+  return 'mock_' + base64; // Prefix used by AuthContext
 }
 
 export async function mockLogin(email: string, password: string): Promise<MockAuthResult> {
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network latency
   const users = getStoredUsers();
   const user = users[email];
   
@@ -165,12 +188,8 @@ export async function mockGetCurrentUser(token: string): Promise<MockAuthResult>
   }
 }
 
-/**
- * Updated to check for the correct Vite environment variable
- */
 export function isGitHubPagesDeployment(): boolean {
   if (typeof window === 'undefined') return false;
   const url = window.location.href;
-  // If we have an API URL set, we aren't "forced" to use GitHub Pages mock mode
-  return url.includes('github.io') && !import.meta.env.VITE_API_URL;
+  return url.includes('github.io') && !import.meta.env.VITE_API_URL; //
 }
