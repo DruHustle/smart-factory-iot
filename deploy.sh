@@ -1,8 +1,7 @@
 #!/bin/bash
 
-# Smart Factory IoT - Deployment Script
-# This script automates the deployment process for the smart-factory-iot application
-# Includes automatic database setup and demo account seeding
+# Smart Factory IoT - Master Deployment Script (Demo accounts use localStorage)
+# Functionality: Build + Test + AUTOMATIC GitHub Pages Deployment
 
 set -e  # Exit on error
 
@@ -13,7 +12,10 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Functions
+# ==========================================
+# HELPER FUNCTIONS
+# ==========================================
+
 print_header() {
     echo -e "${BLUE}========================================${NC}"
     echo -e "${BLUE}$1${NC}"
@@ -36,7 +38,10 @@ print_info() {
     echo -e "${BLUE}ℹ $1${NC}"
 }
 
-# Check prerequisites
+# ==========================================
+# CORE CHECKS & SETUP
+# ==========================================
+
 check_prerequisites() {
     print_header "Checking Prerequisites"
     
@@ -60,108 +65,69 @@ check_prerequisites() {
         exit 1
     fi
     print_success "git $(git --version | awk '{print $3}')"
-    
-    # Check MySQL
-    if ! command -v mysql &> /dev/null; then
-        print_error "MySQL client is not installed"
-        exit 1
-    fi
-    print_success "MySQL client installed"
 }
 
-# Setup database
-setup_database() {
-    print_header "Setting Up Database"
-    
-    # Use setup-dev-db.sh if it exists
-    if [ -f "./setup-dev-db.sh" ]; then
-        print_info "Running database setup script..."
-        chmod +x ./setup-dev-db.sh
-        ./setup-dev-db.sh
-        print_success "Database setup completed"
-    else
-        print_warning "setup-dev-db.sh not found, skipping automatic database setup"
-    fi
-}
-
-# Seed demo accounts
-seed_demo_accounts() {
-    print_header "Seeding Demo Accounts"
-    
-    # Use seed-demo-accounts.mjs if it exists
-    if [ -f "./seed-demo-accounts.mjs" ]; then
-        print_info "Seeding demo accounts..."
-        node ./seed-demo-accounts.mjs
-        print_success "Demo accounts seeded"
-    else
-        print_warning "seed-demo-accounts.mjs not found, skipping demo account seeding"
-    fi
-}
-
-# Validate environment variables
 validate_environment() {
     print_header "Validating Environment Variables"
-    
-    if [ -z "$DATABASE_URL" ]; then
-        print_info "DATABASE_URL not set, will use development database"
-        export DATABASE_URL="mysql://root@localhost:3306/smart_factory_dev"
-    fi
-    print_success "DATABASE_URL is configured: $DATABASE_URL"
-    
-    if [ -z "$JWT_SECRET" ]; then
-        print_warning "JWT_SECRET is not set, using default (NOT RECOMMENDED FOR PRODUCTION)"
-        export JWT_SECRET="dev-secret-key-change-in-production"
-    else
-        print_success "JWT_SECRET is configured"
-    fi
     
     if [ -z "$NODE_ENV" ]; then
         print_info "NODE_ENV not set, defaulting to 'production'"
         export NODE_ENV="production"
     fi
     print_success "NODE_ENV=$NODE_ENV"
+    
+    # Note: DATABASE_URL and JWT_SECRET checks removed as they are not needed for localStorage demo
 }
 
-# Install dependencies
 install_dependencies() {
     print_header "Installing Dependencies"
     
     if [ ! -d "node_modules" ]; then
         print_info "Installing npm packages..."
-        pnpm install
+        pnpm install --frozen-lockfile || pnpm install
         print_success "Dependencies installed"
     else
         print_info "Updating dependencies..."
-        pnpm install
+        pnpm install --frozen-lockfile || pnpm install
         print_success "Dependencies updated"
     fi
 }
 
-# Run type checking
 run_type_check() {
     print_header "Running TypeScript Type Check"
-    
-    pnpm check
-    print_success "TypeScript check passed"
-}
-
-# Run tests
-run_tests() {
-    print_header "Running Test Suite"
-    
-    if pnpm test 2>&1 | tee test-output.log; then
-        print_success "All tests passed"
+    # Check if 'check' script exists in package.json before running
+    if grep -q "\"check\":" package.json; then
+        pnpm check
+        print_success "TypeScript check passed"
     else
-        print_warning "Some tests failed - review output above"
-        read -p "Continue with deployment? (y/n) " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            exit 1
-        fi
+        print_warning "No 'check' script found in package.json, skipping type check."
     fi
 }
 
-# Build application
+run_tests() {
+    print_header "Running Test Suite"
+    
+    # Only run if test script exists
+    if grep -q "\"test\":" package.json; then
+        if pnpm test 2>&1 | tee test-output.log; then
+            print_success "All tests passed"
+        else
+            print_warning "Some tests failed - review output above"
+            read -p "Continue with deployment? (y/n) " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                exit 1
+            fi
+        fi
+    else
+         print_warning "No 'test' script found, skipping."
+    fi
+}
+
+# ==========================================
+# BUILD PROCESS
+# ==========================================
+
 build_application() {
     print_header "Building Application"
     
@@ -169,139 +135,104 @@ build_application() {
     pnpm build
     print_success "Build completed successfully"
     
-    # Check build artifacts
-    if [ ! -d "dist" ]; then
-        print_error "Build failed - dist directory not created"
-        exit 1
-    fi
-    print_success "Build artifacts verified"
-}
-
-# Verify build
-verify_build() {
-    print_header "Verifying Build Artifacts"
-    
-    if [ ! -f "dist/index.js" ]; then
-        print_error "Backend bundle not found"
-        exit 1
-    fi
-    print_success "Backend bundle verified"
-    
-    if [ ! -f "dist/public/index.html" ]; then
-        print_error "Frontend bundle not found"
-        exit 1
-    fi
-    print_success "Frontend bundle verified"
-    
-    # Check bundle sizes
-    BACKEND_SIZE=$(du -h dist/index.js | cut -f1)
-    FRONTEND_SIZE=$(du -h dist/public/assets/*.js | tail -1 | cut -f1)
-    
-    print_info "Backend size: $BACKEND_SIZE"
-    print_info "Frontend size: $FRONTEND_SIZE"
-}
-
-# Create environment file
-create_env_file() {
-    print_header "Creating Environment Configuration"
-    
-    if [ ! -f ".env.production" ]; then
-        print_info "Creating .env.production file..."
-        cat > .env.production << EOF
-# Production Environment Configuration
-NODE_ENV=production
-DATABASE_URL=${DATABASE_URL}
-JWT_SECRET=${JWT_SECRET}
-PORT=${PORT:-3000}
-VITE_APP_ID=smart-factory-iot
-VITE_APP_TITLE=Smart Factory IoT
-CORS_ORIGINS=*
-DEBUG=false
-EOF
-        print_success ".env.production created"
+    # Check build artifacts (Adjusted for Vite/React defaults)
+    if [ -d "dist" ]; then
+        print_success "Build artifacts found in 'dist'"
+    elif [ -d "build" ]; then
+        print_success "Build artifacts found in 'build'"
     else
-        print_info ".env.production already exists"
+        print_error "Build failed - neither 'dist' nor 'build' directory created"
+        exit 1
     fi
 }
 
-# Run database migrations
-run_migrations() {
-    print_header "Running Database Migrations"
-    
-    if [ -z "$DATABASE_URL" ]; then
-        print_warning "DATABASE_URL not set, skipping migrations"
-        return
+# ==========================================
+# GITHUB PAGES DEPLOYMENT
+# ==========================================
+
+deploy_to_gh_pages() {
+    print_header "Deploying to GitHub Pages"
+
+    # Determine build directory
+    BUILD_DIR="dist"
+    if [ -d "build" ]; then BUILD_DIR="build"; fi
+
+    # Check git config
+    if [ -z "$(git config user.name)" ]; then
+        print_warning "Git user not configured. Setting defaults for deployment..."
+        git config user.name "Auto Deploy"
+        git config user.email "deploy@local"
     fi
+
+    # Ensure on main
+    git checkout main 2>/dev/null || git checkout master
+    print_info "Verified on main branch"
+
+    # Create temp dir
+    TEMP_DIR=$(mktemp -d)
+    print_info "Created temporary directory: $TEMP_DIR"
+
+    # Copy assets
+    cp -r $BUILD_DIR/* "$TEMP_DIR/"
+    print_success "Copied built assets from $BUILD_DIR"
+
+    # Switch to orphan branch
+    git checkout --orphan gh-pages-new
+    print_info "Created new orphan branch"
+
+    # Clear directory
+    git rm -rf . > /dev/null 2>&1 || true
+    print_info "Cleaned working directory"
+
+    # Bring back assets
+    cp -r "$TEMP_DIR"/* .
+    print_success "Added built assets to branch"
+
+    # Create .gitignore specific for gh-pages
+    cat > .gitignore << 'GITIGNORE'
+node_modules/
+.DS_Store
+Thumbs.db
+*.env
+GITIGNORE
+    print_success "Added .gitignore"
+
+    # Commit and Push
+    git add -A
+    git commit -m "Deploy: GitHub Pages with latest build ($(date '+%Y-%m-%d %H:%M:%S'))"
+    print_success "Committed changes"
+
+    print_info "Pushing to origin gh-pages (Force)..."
+    git push origin gh-pages-new:gh-pages --force
+    print_success "Pushed to gh-pages branch"
+
+    # Cleanup
+    rm -rf "$TEMP_DIR"
+    git checkout main 2>/dev/null || git checkout master
+    git branch -D gh-pages-new
+    print_success "Cleanup complete"
     
-    print_info "Running Drizzle migrations..."
-    pnpm exec drizzle-kit migrate || print_warning "Migrations may have already been applied"
-    print_success "Database migrations completed"
+    echo ""
+    REPO_URL=$(git remote get-url origin | sed -E 's/.*github.com[:\/]([^\/]+)\/([^\.]+).*/\1\/\2/')
+    echo "=== GitHub Pages Deployment Successful ==="
+    echo "URL: https://$(echo $REPO_URL | cut -d'/' -f1).github.io/$(echo $REPO_URL | cut -d'/' -f2)"
 }
 
-# Health check
-health_check() {
-    print_header "Health Check"
-    
-    print_info "Checking application health..."
-    
-    # Verify all required files exist
-    local required_files=(
-        "dist/index.js"
-        "dist/public/index.html"
-        "dist/public/assets"
-        "package.json"
-    )
-    
-    for file in "${required_files[@]}"; do
-        if [ ! -e "$file" ]; then
-            print_error "Required file missing: $file"
-            exit 1
-        fi
-    done
-    
-    print_success "All required files present"
-}
+# ==========================================
+# MAIN EXECUTION
+# ==========================================
 
-# Generate deployment summary
-generate_summary() {
-    print_header "Deployment Summary"
-    
-    echo -e "${GREEN}Deployment preparation completed successfully!${NC}"
-    echo ""
-    echo "Next steps:"
-    echo "1. Review the .env.production file"
-    echo "2. Start the application: npm start"
-    echo "3. Access the application at http://localhost:3000"
-    echo ""
-    echo "Production Configuration:"
-    echo "  - Node Environment: $NODE_ENV"
-    echo "  - Port: ${PORT:-3000}"
-    echo "  - Database: Configured and seeded"
-    echo ""
-    echo "Demo Accounts Available:"
-    echo "  - Admin: admin@demo.local / demo-admin-password"
-    echo "  - Operator: operator@demo.local / demo-operator-password"
-    echo "  - Technician: technician@demo.local / demo-technician-password"
-    echo "  - Demo: demo@demo.local / demo-password"
-    echo ""
-    echo "Important Security Notes:"
-    echo "  - Ensure JWT_SECRET is strong (minimum 32 characters)"
-    echo "  - Use HTTPS in production"
-    echo "  - Configure CORS_ORIGINS appropriately"
-    echo "  - Set up monitoring and logging"
-    echo "  - Enable database backups"
-    echo ""
-}
-
-# Main deployment flow
 main() {
-    print_header "Smart Factory IoT - Deployment Script"
+    print_header "Smart Factory IoT - Deployment Manager"
     
-    # Parse command line arguments
+    # Defaults
     SKIP_TESTS=false
     SKIP_BUILD=false
-    SKIP_DB_SETUP=false
     
+    # Default is TRUE. Use --skip-pages to disable.
+    DO_PAGES_DEPLOY=true 
+    
+    # Parse Arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
             --skip-tests)
@@ -312,17 +243,17 @@ main() {
                 SKIP_BUILD=true
                 shift
                 ;;
-            --skip-db-setup)
-                SKIP_DB_SETUP=true
+            --skip-pages)
+                DO_PAGES_DEPLOY=false
                 shift
                 ;;
             --help)
                 echo "Usage: ./deploy.sh [OPTIONS]"
                 echo ""
                 echo "Options:"
+                echo "  --skip-pages      Skip deploying to GitHub Pages"
                 echo "  --skip-tests      Skip running the test suite"
                 echo "  --skip-build      Skip building the application"
-                echo "  --skip-db-setup   Skip database setup and seeding"
                 echo "  --help            Show this help message"
                 exit 0
                 ;;
@@ -333,37 +264,36 @@ main() {
         esac
     done
     
-    # Execute deployment steps
+    # 1. Prereqs
     check_prerequisites
     
-    if [ "$SKIP_DB_SETUP" = false ]; then
-        setup_database
-        seed_demo_accounts
-    else
-        print_warning "Skipping database setup"
-    fi
-    
+    # 2. Validation & Install
     validate_environment
     install_dependencies
-    run_type_check
     
+    # 3. Tests
     if [ "$SKIP_TESTS" = false ]; then
+        run_type_check
         run_tests
     else
         print_warning "Skipping tests"
     fi
     
+    # 4. Build
     if [ "$SKIP_BUILD" = false ]; then
         build_application
-        verify_build
     else
         print_warning "Skipping build"
     fi
     
-    create_env_file
-    run_migrations
-    health_check
-    generate_summary
+    # 5. Automatic GitHub Pages Deployment
+    if [ "$DO_PAGES_DEPLOY" = true ]; then
+        deploy_to_gh_pages
+    fi
+
+    echo ""
+    print_success "Deployment Script Finished"
+    echo "Storage Mode: localStorage (Data will persist on this device only)"
 }
 
 # Run main function

@@ -4,7 +4,6 @@ import {
   register as apiRegister,
   logout as apiLogout,
   getCurrentUser,
-  isGitHubPagesDeployment,
 } from "@/lib/api-auth";
 import { mockLogin, mockRegister, mockGetCurrentUser } from "@/lib/mock-auth";
 import type { User } from "../../../drizzle/schema";
@@ -23,24 +22,20 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const isGitHubPages = isGitHubPagesDeployment(); // Detect if running on GitHub Pages
 
   useEffect(() => {
     const initializeAuth = async () => {
       const token = localStorage.getItem("token");
 
-      if (token && token.startsWith('mock_')) {
-        // If it's a mock token, always use mock auth
-        const result = await mockGetCurrentUser(token);
-        if (result.success && result.user) {
-          setUser(result.user);
-        } else {
-          localStorage.removeItem("token");
-          setUser(null);
-        }
-      } else if (isGitHubPages) {
-        // For GitHub Pages with no mock token
-        if (token) {
+      if (!token) {
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        // 1. Check if the existing session is a Mock session
+        if (token.startsWith('mock_')) {
           const result = await mockGetCurrentUser(token);
           if (result.success && result.user) {
             setUser(result.user);
@@ -48,45 +43,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             localStorage.removeItem("token");
             setUser(null);
           }
-        } else {
-          setUser(null);
+        } 
+        // 2. Otherwise, attempt to validate token with Render Backend
+        else {
+          const result = await getCurrentUser();
+          if (result.success && result.user) {
+            setUser(result.user);
+          } else {
+            localStorage.removeItem("token");
+            setUser(null);
+          }
         }
-      } else {
-        // For real backend
-        const result = await getCurrentUser();
-        if (result.success && result.user) {
-          setUser(result.user);
-        } else {
-          setUser(null);
-        }
+      } catch (error) {
+        console.error("Auth initialization failed:", error);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
       }
-
-      setIsLoading(false);
     };
 
     initializeAuth();
-  }, [isGitHubPages]);
+  }, []);
 
   const login = async (email: string, password: string) => {
     try {
+      // Define demo accounts criteria
+      const isDemoAccount = email.endsWith('@dev.local') || email === 'admin@demo.com';
+
       let result;
-
-      // Check if it's a demo account - always use mock auth for demo accounts
-      const isDemo = email.endsWith('@dev.local');
-
-      if (isGitHubPages || isDemo) {
-        // Use mock auth
+      if (isDemoAccount) {
+        // Use local Mock Auth for demo accounts
         result = await mockLogin(email, password);
-        if (!result.success) {
-          return { success: false, error: result.error };
-        }
-        // Store token in localStorage for demo accounts
-        if (result.token) {
-          localStorage.setItem("token", result.token);
+        if (result.success && result.token) {
+          localStorage.setItem("token", result.token); // Should be prefixed with 'mock_'
         }
       } else {
-        // Use real backend
+        // Use Render Backend for all other accounts
         result = await apiLogin(email, password);
+        // apiLogin usually calls setAuthToken internally to save the real JWT
       }
 
       if (result.success) {
@@ -96,35 +90,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return { success: false, error: result.error || "Login failed" };
     } catch (error: any) {
-      return { success: false, error: error.message || "Login failed" };
+      return { success: false, error: error.message || "An unexpected error occurred" };
     }
   };
 
   const register = async (email: string, password: string, name: string) => {
     try {
-      if (isGitHubPages) {
-        // Use mock auth
-        const result = await mockRegister(email, password, name);
-        if (!result.success) {
-          return { success: false, error: result.error };
-        }
-        // Store token in localStorage for demo accounts
-        if (result.token) {
-          localStorage.setItem("token", result.token);
-        }
-        // Set user after registration
-        setUser(result.user || null);
-        return { success: true };
-      } else {
-        // Use real backend
-        const result = await apiRegister(email, password, name);
-        if (!result.success) {
-          return { success: false, error: result.error };
-        }
-        // Set user after registration
+      // Registration is treated as a "Real User" action (Render Backend)
+      const result = await apiRegister(email, password, name);
+      
+      if (result.success) {
         setUser(result.user || null);
         return { success: true };
       }
+      return { success: false, error: result.error || "Registration failed" };
     } catch (error: any) {
       return { success: false, error: error.message || "Registration failed" };
     }
@@ -132,19 +111,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      if (!isGitHubPages) {
+      const token = localStorage.getItem("token");
+
+      // Only notify backend if it's a real session
+      if (token && !token.startsWith('mock_')) {
         await apiLogout();
-      } else {
-        localStorage.removeItem("token");
       }
-      setUser(null);
     } catch (error) {
-      console.error("Logout failed", error);
+      console.error("Logout request failed:", error);
+    } finally {
+      // Always clear local state
+      localStorage.removeItem("token");
+      setUser(null);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, logout, register }}>
+    <AuthContext.Provider 
+      value={{ 
+        user, 
+        isLoading, 
+        isAuthenticated: !!user, 
+        login, 
+        logout, 
+        register 
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

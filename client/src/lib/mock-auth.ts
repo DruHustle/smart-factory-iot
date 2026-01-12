@@ -1,11 +1,9 @@
 /**
  * Mock Authentication Service
- * 
- * Used for GitHub Pages deployment where no backend API is available.
- * Provides local authentication using demo accounts stored in localStorage.
+ * * Handles demo accounts locally. Tokens generated here start with 'mock_'
+ * to prevent the AuthContext from attempting to reach the Render backend.
  */
 
-import { DEMO_ACCOUNTS } from "../../../shared/demo-accounts";
 import type { User } from "../../../drizzle/schema";
 
 export interface MockAuthResult {
@@ -15,9 +13,6 @@ export interface MockAuthResult {
   error?: string;
 }
 
-/**
- * Mock user data for demo accounts
- */
 const USERS_KEY = 'smart_factory_users';
 
 const INITIAL_USERS: Record<string, User> = {
@@ -87,7 +82,7 @@ function saveStoredUsers(users: Record<string, User>): void {
 }
 
 /**
- * Generate a mock JWT token
+ * Generate a mock JWT token prefixed with 'mock_'
  */
 function generateMockToken(email: string): string {
   const payload = {
@@ -98,50 +93,32 @@ function generateMockToken(email: string): string {
   
   const jsonString = JSON.stringify(payload);
   const base64 = btoa(unescape(encodeURIComponent(jsonString)));
+  // This prefix is what the AuthContext uses to distinguish MOCK vs REAL
   return 'mock_' + base64;
 }
 
-/**
- * Mock login function
- */
 export async function mockLogin(email: string, password: string): Promise<MockAuthResult> {
   await new Promise(resolve => setTimeout(resolve, 500));
-
   const users = getStoredUsers();
   const user = users[email];
   
   if (!user || user.password !== password) {
-    return {
-      success: false,
-      error: 'Invalid email or password',
-    };
+    return { success: false, error: 'Invalid email or password' };
   }
-
-  const token = generateMockToken(email);
 
   return {
     success: true,
-    token,
+    token: generateMockToken(email),
     user,
   };
 }
 
-/**
- * Mock register function
- */
-export async function mockRegister(
-  email: string,
-  password: string,
-  name: string
-): Promise<MockAuthResult> {
+export async function mockRegister(email: string, password: string, name: string): Promise<MockAuthResult> {
   await new Promise(resolve => setTimeout(resolve, 500));
-
   const users = getStoredUsers();
+  
   if (users[email]) {
-    return {
-      success: false,
-      error: 'Email already registered',
-    };
+    return { success: false, error: 'Email already registered' };
   }
 
   const id = Object.keys(users).length + 1;
@@ -161,26 +138,18 @@ export async function mockRegister(
   users[email] = newUser;
   saveStoredUsers(users);
 
-  const token = generateMockToken(email);
-
   return {
     success: true,
-    token,
+    token: generateMockToken(email),
     user: newUser,
   };
 }
 
-/**
- * Mock get current user
- */
 export async function mockGetCurrentUser(token: string): Promise<MockAuthResult> {
   await new Promise(resolve => setTimeout(resolve, 200));
 
   if (!token || !token.startsWith('mock_')) {
-    return {
-      success: false,
-      error: 'Invalid token',
-    };
+    return { success: false, error: 'Invalid mock token' };
   }
 
   try {
@@ -190,32 +159,18 @@ export async function mockGetCurrentUser(token: string): Promise<MockAuthResult>
     const users = getStoredUsers();
     const user = users[payload.email];
 
-    if (!user) {
-      return {
-        success: false,
-        error: 'User not found',
-      };
-    }
-
-    return {
-      success: true,
-      user,
-    };
+    return user ? { success: true, user } : { success: false, error: 'User not found' };
   } catch {
-    return {
-      success: false,
-      error: 'Invalid token',
-    };
+    return { success: false, error: 'Invalid token format' };
   }
 }
 
 /**
- * Check if running on GitHub Pages (no backend available)
+ * Updated to check for the correct Vite environment variable
  */
 export function isGitHubPagesDeployment(): boolean {
   if (typeof window === 'undefined') return false;
-  
   const url = window.location.href;
-  return url.includes('github.io') || 
-         (url.includes('localhost') && !process.env.VITE_API_URL);
+  // If we have an API URL set, we aren't "forced" to use GitHub Pages mock mode
+  return url.includes('github.io') && !import.meta.env.VITE_API_URL;
 }

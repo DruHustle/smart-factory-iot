@@ -15,7 +15,7 @@ export interface AuthResponse {
   error?: string;
 }
 
-const API_BASE_URL = process.env.VITE_API_URL || "/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 /**
  * Get the best available storage for the current environment
@@ -223,5 +223,5 @@ export function isGitHubPagesDeployment(): boolean {
   if (typeof window === "undefined") return false;
 
   const url = window.location.href;
-  return url.includes("github.io") || (url.includes("localhost") && !process.env.VITE_API_URL);
+  return url.includes("github.io") && !import.meta.env.VITE_API_URL;
 }

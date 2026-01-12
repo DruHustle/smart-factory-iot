@@ -18,6 +18,9 @@ import AlertHistory from "./pages/AlertHistory";
 import Analytics from "./pages/Analytics";
 import OTAUpdates from "./pages/OTAUpdates";
 
+// LOG TO VERIFY YOUR CONFIGURATION
+console.log("Connecting to backend at:", import.meta.env.VITE_API_URL);
+
 function Router() {
   const { user, isLoading } = useAuth();
 
