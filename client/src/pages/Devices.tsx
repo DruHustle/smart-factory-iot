@@ -46,6 +46,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import ThresholdConfigDialog from "@/components/ThresholdConfigDialog";
+import CreateDeviceDialog from "@/components/CreateDeviceDialog";
 
 type DeviceStatus = "online" | "offline" | "maintenance" | "error";
 type DeviceType = "sensor" | "actuator" | "controller" | "gateway";
@@ -73,6 +74,7 @@ export default function Devices() {
   const [selectedDevice, setSelectedDevice] = useState<number | null>(null);
   const [thresholdDialogOpen, setThresholdDialogOpen] = useState(false);
   const [thresholdDeviceId, setThresholdDeviceId] = useState<number | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const utils = trpc.useUtils();
 
@@ -120,7 +122,7 @@ export default function Devices() {
             Manage and configure your IoT devices
           </p>
         </div>
-        <Button size="sm" onClick={() => toast.info("Device creation coming soon")}>
+        <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Device
         </Button>
@@ -321,6 +323,11 @@ export default function Devices() {
           onOpenChange={setThresholdDialogOpen}
         />
       )}
+
+      <CreateDeviceDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+      />
     </div>
   );
 }
