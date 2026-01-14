@@ -1,3 +1,4 @@
+import { Analytics } from '@vercel/analytics/react';
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
@@ -15,13 +16,13 @@ import Devices from "./pages/Devices";
 import DeviceDetail from "./pages/DeviceDetail";
 import Alerts from "./pages/Alerts";
 import AlertHistory from "./pages/AlertHistory";
-import Analytics from "./pages/Analytics";
+import AnalyticsPage from "./pages/AnalyticsPage";
 import OTAUpdates from "./pages/OTAUpdates";
 
 // LOG TO VERIFY YOUR CONFIGURATION
 console.log("Connecting to backend at:", import.meta.env.VITE_API_URL);
 
-function Router() {
+function AppRouter() {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
@@ -55,7 +56,7 @@ function Router() {
           <Route path="/devices/:id" component={DeviceDetail} />
           <Route path="/alerts" component={Alerts} />
           <Route path="/alert-history" component={AlertHistory} />
-          <Route path="/analytics" component={Analytics} />
+          <Route path="/analytics" component={AnalyticsPage} />
           <Route path="/ota" component={OTAUpdates} />
           <Route path="/404" component={NotFound} />
           <Route component={NotFound} />
@@ -72,7 +73,8 @@ function App() {
         <ThemeProvider defaultTheme="dark">
           <TooltipProvider>
             <Toaster />
-            <Router />
+            <AppRouter />
+            <Analytics />
           </TooltipProvider>
         </ThemeProvider>
       </AuthProvider>

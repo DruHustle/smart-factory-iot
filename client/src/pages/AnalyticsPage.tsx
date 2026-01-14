@@ -50,7 +50,7 @@ type TimeRange = "24h" | "7d" | "30d" | "custom";
 
 const COLORS = ["#3b82f6", "#f97316", "#10b981", "#8b5cf6", "#eab308"];
 
-export default function Analytics() {
+export default function AnalyticsPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [customDateRange, setCustomDateRange] = useState<{
     from: Date | undefined;
