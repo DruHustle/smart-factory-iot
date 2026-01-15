@@ -1,305 +1,178 @@
 # Smart Factory IoT - API Flows & Sequences
 
-## Authentication Flow
+This document outlines the primary API flows and sequence diagrams for the Smart Factory IoT platform. The backend is built using **Node.js with Express and tRPC**, ensuring type-safe API contracts between the server and the React frontend.
+
+## 1. Authentication and Authorization Flow
+
+The system uses a combination of password-based login and a session-based JWT token stored in a secure cookie.
 
 ```mermaid
 sequenceDiagram
-    participant Client as Client App
-    participant API as Backend API
-    participant DB as Database
-    participant Auth as Auth Service
+    participant Client as Client App (React)
+    participant API as Backend API (tRPC)
+    participant SDK as SDK/Auth Service
+    participant DB as Database (MySQL)
     
-    Client->>API: POST /api/trpc/auth.login<br/>{email, password}
-    API->>Auth: Validate credentials
-    Auth->>DB: Query user by email
-    DB-->>Auth: User record
-    Auth->>Auth: Verify password hash
-    Auth-->>API: Validation result
+    Client->>API: POST /auth.login<br/>{email, password}
+    API->>SDK: Get user by email
+    SDK->>DB: SELECT user WHERE email=?
+    DB-->>SDK: User Record
     
+    SDK->>SDK: Compare password hash
     alt Authentication Success
-        API->>API: Generate JWT token
+        SDK->>SDK: Generate JWT Session Token
+        SDK-->>API: Token & User
+        API->>Client: Set-Cookie: ${COOKIE_NAME}=Token
         API-->>Client: {token, user}
-        Client->>Client: Store token in localStorage
     else Authentication Failed
+        SDK-->>API: Error (Invalid credentials)
         API-->>Client: 401 Unauthorized
-        Client->>Client: Show error message
     end
+    
+    Client->>API: Subsequent Protected Request<br/>(with Cookie)
+    API->>SDK: Authenticate Request
+    SDK->>SDK: Verify JWT Token
+    SDK->>DB: Get user by openId (for context)
+    DB-->>SDK: User Record
+    SDK-->>API: User Context
+    API->>API: Execute Procedure
+    API-->>Client: Response
 ```
 
-## Real-time Device Monitoring Flow
+## 2. Real-time Sensor Data Ingestion and Alerting Flow
+
+IoT devices send sensor readings to the server, which processes them in real-time to check for threshold violations and broadcast updates via WebSocket.
 
 ```mermaid
 sequenceDiagram
     participant Device as IoT Device
-    participant WS as WebSocket Server
-    participant Backend as Backend Service
+    participant API as Backend API (tRPC)
     participant DB as Database
+    participant Notif as Notification Service
+    participant WS as WebSocket Manager
     participant Dashboard as Dashboard UI
     
-    Device->>WS: Connect WebSocket
-    WS-->>Device: Connection established
+    Device->>API: POST /readings.create<br/>{deviceId, data, timestamp}
+    API->>DB: Store sensor_reading
     
-    loop Every 5 seconds
-        Device->>WS: Send sensor data
-        WS->>Backend: Process reading
-        Backend->>DB: Store sensor_reading
-        Backend->>Backend: Check thresholds
-        
-        alt Threshold Exceeded
-            Backend->>DB: Create alert
-            Backend->>WS: Broadcast alert
-            WS->>Dashboard: Real-time update
-            Dashboard->>Dashboard: Update UI
-        else Within Range
-            Backend->>WS: Broadcast reading
-            WS->>Dashboard: Real-time update
-        end
+    API->>Notif: Check thresholds for device
+    Notif->>DB: Get ALERT_THRESHOLDS
+    DB-->>Notif: Thresholds
+    
+    alt Threshold Exceeded
+        Notif->>DB: Create ALERTS record
+        DB-->>Notif: Alert ID
+        Notif->>Notif: Queue external notifications (Email/SMS)
+        WS->>WS: Broadcast to 'alerts' channel
+        WS->>Dashboard: Real-time Alert Update
+    else Within Range
+        WS->>WS: Broadcast to 'readings' channel
+        WS->>Dashboard: Real-time Data Update
     end
     
-    Device->>WS: Disconnect
-    WS-->>Device: Connection closed
+    API-->>Device: 200 OK
 ```
 
-## Alert Management Flow
+## 3. Over-The-Air (OTA) Firmware Deployment Flow
 
-```mermaid
-sequenceDiagram
-    participant Sensor as Sensor Reading
-    participant Threshold as Threshold Check
-    participant Alert as Alert Service
-    participant Notification as Notification Service
-    participant User as User
-    
-    Sensor->>Threshold: New reading value
-    Threshold->>Threshold: Compare with limits
-    
-    alt Value out of range
-        Threshold->>Alert: Create alert
-        Alert->>Alert: Determine severity
-        Alert->>Notification: Send notification
-        Notification->>User: Email/SMS alert
-        User->>User: Receive notification
-        
-        User->>Alert: Acknowledge alert
-        Alert->>Alert: Mark as acknowledged
-        
-        User->>Alert: Resolve alert
-        Alert->>Alert: Mark as resolved
-    else Value in range
-        Threshold-->>Sensor: No action
-    end
-```
-
-## Device Management Flow
-
-```mermaid
-sequenceDiagram
-    participant UI as Dashboard UI
-    participant API as REST API
-    participant Service as Device Service
-    participant DB as Database
-    participant Cache as Cache Layer
-    
-    UI->>API: GET /api/trpc/devices.list
-    API->>Cache: Check cache
-    
-    alt Cache hit
-        Cache-->>API: Cached devices
-    else Cache miss
-        API->>Service: Fetch devices
-        Service->>DB: Query devices
-        DB-->>Service: Device records
-        Service->>Cache: Update cache
-        Service-->>API: Device list
-    end
-    
-    API-->>UI: {devices: [...]}
-    UI->>UI: Render device list
-    
-    UI->>API: POST /api/trpc/devices.update<br/>{id, data}
-    API->>Service: Update device
-    Service->>DB: Update record
-    DB-->>Service: Updated device
-    Service->>Cache: Invalidate cache
-    Service-->>API: Updated device
-    API-->>UI: {success: true}
-    UI->>UI: Update UI
-```
-
-## OTA Update Flow
+The administrator initiates a firmware update, which is tracked through a deployment record and reported by the device.
 
 ```mermaid
 sequenceDiagram
     participant Admin as Administrator
-    participant API as Backend API
+    participant API as Backend API (tRPC)
+    participant DB as Database
     participant Device as IoT Device
-    participant DB as Database
-    participant Storage as File Storage
+    participant Storage as Firmware Storage (S3)
     
-    Admin->>API: POST /api/trpc/ota.deploy<br/>{version, devices}
-    API->>DB: Create deployments
-    API->>Device: Notify device
-    Device->>Device: Check update available
+    Admin->>API: POST /ota.deploy<br/>{deviceId, firmwareVersionId}
+    API->>DB: Create OTA_DEPLOYMENTS<br/>(status: 'pending')
+    DB-->>API: Deployment Record
     
-    Device->>Storage: Download firmware
-    Storage-->>Device: Firmware file
-    Device->>Device: Verify checksum
-    Device->>Device: Install firmware
-    Device->>Device: Reboot
+    API->>Device: Notify device (via MQTT/WS)
     
-    Device->>API: POST /api/trpc/ota.reportStatus<br/>{status: completed}
-    API->>DB: Update deployment status
-    DB-->>API: Updated
-    API-->>Admin: Update complete
-    Admin->>Admin: Receive notification
+    Device->>Device: Check for pending deployment
+    Device->>API: POST /ota.updateStatus<br/>{id, status: 'downloading'}
+    
+    Device->>Storage: GET Firmware File
+    Storage-->>Device: Firmware Binary
+    
+    Device->>Device: Verify Checksum & Install
+    
+    Device->>API: POST /ota.updateStatus<br/>{id, status: 'completed'}
+    API->>DB: Update OTA_DEPLOYMENTS<br/>(status: 'completed')
+    API->>DB: Update DEVICES.firmwareVersion
+    DB-->>API: Success
+    
+    API-->>Admin: Deployment complete
 ```
 
-## Analytics & Reporting Flow
+## 4. Device Grouping and Batch Operation Flow
+
+The `DeviceGroupingService` manages logical groups (zones, production lines) and enables batch operations across all devices in a group.
 
 ```mermaid
 sequenceDiagram
-    participant Dashboard as Dashboard
-    participant API as Analytics API
-    participant Cache as Analytics Cache
-    participant DB as Database
-    
-    Dashboard->>API: GET /api/trpc/analytics.getOEEMetrics<br/>{timeRange}
-    API->>Cache: Check cache
-    
-    alt Cache valid
-        Cache-->>API: Cached metrics
-    else Cache expired
-        API->>DB: Query sensor readings
-        DB-->>API: Raw data
-        API->>API: Calculate OEE
-        API->>API: Calculate availability
-        API->>API: Calculate performance
-        API->>API: Calculate quality
-        API->>Cache: Store metrics
-    end
-    
-    API-->>Dashboard: {oee, availability, performance, quality}
-    Dashboard->>Dashboard: Render charts
-```
-
-## Error Handling Flow
-
-```mermaid
-sequenceDiagram
-    participant Client as Client
-    participant API as API Server
-    participant Handler as Error Handler
-    participant Logger as Logger
-    participant User as User
-    
-    Client->>API: Request
-    API->>API: Process request
-    
-    alt Error occurs
-        API->>Handler: Handle error
-        Handler->>Logger: Log error details
-        Logger->>Logger: Store in logs
-        
-        alt Client error (4xx)
-            Handler-->>Client: Error response
-            Client->>User: Show error message
-        else Server error (5xx)
-            Handler->>Logger: Alert administrators
-            Handler-->>Client: Generic error
-            User->>User: See generic message
-        end
-    else Success
-        API-->>Client: Success response
-    end
-```
-
-## WebSocket Connection Management
-
-```mermaid
-sequenceDiagram
-    participant Client as Client App
-    participant WS as WebSocket Server
-    participant Heartbeat as Heartbeat Service
-    
-    Client->>WS: Connect
-    WS-->>Client: Connection established
-    WS->>WS: Add to connection pool
-    
-    loop Every 30 seconds
-        WS->>Heartbeat: Check connections
-        Heartbeat->>Client: Ping
-        Client-->>Heartbeat: Pong
-    end
-    
-    alt Connection inactive
-        Heartbeat->>WS: Connection timeout
-        WS->>Client: Close connection
-        Client->>Client: Attempt reconnect
-    else Connection active
-        Heartbeat->>WS: Connection healthy
-    end
-    
-    Client->>WS: Disconnect
-    WS->>WS: Remove from pool
-    WS-->>Client: Disconnected
-```
-
-## Data Aggregation Flow
-
-```mermaid
-sequenceDiagram
-    participant Sensors as Multiple Sensors
-    participant Aggregator as Data Aggregator
-    participant Processor as Data Processor
-    participant DB as Database
-    participant Analytics as Analytics Engine
-    
-    loop Every minute
-        Sensors->>Aggregator: Send readings
-        Aggregator->>Aggregator: Collect all readings
-        Aggregator->>Processor: Batch process
-        Processor->>Processor: Calculate averages
-        Processor->>Processor: Detect anomalies
-        Processor->>DB: Store aggregated data
-        Processor->>Analytics: Update metrics
-        Analytics->>Analytics: Recalculate KPIs
-    end
-```
-
-## Multi-Device Grouping Flow
-
-```mermaid
-sequenceDiagram
-    participant UI as Dashboard
-    participant API as API
-    participant Service as Grouping Service
+    participant UI as Dashboard UI
+    participant API as Backend API (tRPC)
+    participant Grouping as Device Grouping Service
     participant DB as Database
     
-    UI->>API: POST /api/trpc/devices.createGroup<br/>{name, deviceIds}
-    API->>Service: Create group
-    Service->>DB: Insert group record
-    Service->>DB: Insert group_members
-    DB-->>Service: Success
-    Service-->>API: Group created
-    API-->>UI: {groupId, devices}
+    UI->>API: POST /groups.createBatchOperation<br/>{groupId, operation, parameters}
+    API->>Grouping: createBatchOperation
+    Grouping->>Grouping: Generate batch ID
+    Grouping->>Grouping: Store BatchOperation (status: 'pending')
+    Grouping-->>API: BatchOperation Record
     
-    UI->>API: POST /api/trpc/devices.groupBatchOperation<br/>{groupId, operation}
-    API->>Service: Execute batch operation
-    Service->>DB: Get group devices
-    DB-->>Service: Device list
+    API->>Grouping: Get devices in group
+    Grouping->>Grouping: Look up deviceIds
     
-    loop For each device
-        Service->>Service: Execute operation
-        Service->>DB: Update device
+    loop For each deviceId in group
+        Grouping->>Grouping: Execute operation (e.g., send restart command)
+        Grouping->>Grouping: Update BatchOperation progress
     end
     
-    Service-->>API: Operation complete
-    API-->>UI: {success: true, updated: N}
+    Grouping->>Grouping: Update BatchOperation (status: 'completed')
+    Grouping-->>API: Final BatchOperation Record
+    API-->>UI: Operation Status
 ```
 
-## API Response Format
+## 5. Analytics and Reporting Flow
+
+The analytics API aggregates historical sensor data to calculate KPIs like energy consumption and OEE (Overall Equipment Effectiveness).
+
+```mermaid
+sequenceDiagram
+    participant Dashboard as Dashboard UI
+    participant API as Backend API (tRPC)
+    participant DB as Database
+    
+    Dashboard->>API: GET /analytics.getEnergy<br/>{startTime, endTime, intervalMs}
+    
+    API->>DB: Get all device IDs
+    DB-->>API: Device IDs
+    
+    API->>DB: GetAggregatedReadings<br/>(deviceIds, time range, interval)
+    DB-->>API: Aggregated Data (Avg Temp, Avg Power per interval)
+    
+    API->>API: Format data for chart
+    
+    API-->>Dashboard: Time-series Data
+    
+    Dashboard->>API: POST /export.analyticsReport<br/>{startTime, endTime}
+    API->>API: Generate report data (Overview, OEE, Energy)
+    API->>API: Generate HTML for PDF conversion
+    API-->>Dashboard: {html, filename}
+    
+    Dashboard->>Dashboard: Download PDF Report
+```
+
+## 6. API Response Structure (tRPC)
+
+The tRPC framework provides a standardized, type-safe response structure.
 
 ### Success Response
+
 ```json
 {
   "result": {
@@ -313,37 +186,29 @@ sequenceDiagram
 ```
 
 ### Error Response
+
+All errors are standardized using `TRPCError` with a clear code and message.
+
 ```json
 {
   "error": {
     "code": "UNAUTHORIZED",
-    "message": "Invalid credentials",
+    "message": "Invalid or missing authentication",
     "data": {
-      "code": "UNAUTHORIZED"
+      "code": "FORBIDDEN",
+      "httpStatus": 403
     }
   }
 }
 ```
 
-## Rate Limiting
+## 7. Security and Performance Considerations
 
-- **API Endpoints**: 100 requests per minute per user
-- **WebSocket**: 1000 messages per minute per connection
-- **File Upload**: 10 MB per file, 100 MB per day
-
-## Timeout Configuration
-
-| Operation | Timeout |
-|-----------|---------|
-| REST API Call | 30 seconds |
-| WebSocket Connection | 60 seconds |
-| Database Query | 10 seconds |
-| File Upload | 5 minutes |
-| Device Firmware Download | 30 minutes |
-
-## API Versioning
-
-- Current Version: v1
-- Endpoint Pattern: `/api/trpc/[router].[procedure]`
-- Backward Compatibility: Maintained for 2 major versions
-- Deprecation Notice: 6 months before removal
+| Feature | Description | Configuration |
+| :--- | :--- | :--- |
+| **Rate Limiting** | Protects against brute-force and denial-of-service attacks. | 100 requests/minute per IP for REST endpoints. |
+| **Input Validation** | Ensures all incoming data conforms to expected schemas. | Implemented via **Zod** for all tRPC procedures. |
+| **Authentication** | Uses secure, signed JWTs stored in HTTP-only cookies. | JWT expiration set to 1 year. |
+| **Data Encryption** | Sensitive data (passwords) are hashed with **bcrypt**. | HTTPS/TLS enforced for all traffic. |
+| **Timeouts** | Prevents long-running requests from consuming resources. | API Gateway timeout: 30 seconds. |
+| **Caching** | Reduces database load for static or frequently accessed data. | Redis cache for thresholds and device metadata. |
