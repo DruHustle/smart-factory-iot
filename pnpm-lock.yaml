@@ -146,6 +146,9 @@ importers:
       embla-carousel-react:
         specifier: ^8.6.0
         version: 8.6.0(react@19.2.3)
+      esbuild:
+        specifier: ^0.25.0
+        version: 0.25.12
       express:
         specifier: ^4.21.2
         version: 4.22.1
@@ -206,6 +209,9 @@ importers:
       vaul:
         specifier: ^1.1.2
         version: 1.1.2(@types/react-dom@19.2.3(@types/react@19.2.8))(@types/react@19.2.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      vite:
+        specifier: ^7.1.7
+        version: 7.3.1(@types/node@24.10.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)
       wouter:
         specifier: ^3.7.1
         version: 3.9.0(react@19.2.3)
@@ -258,9 +264,6 @@ importers:
       drizzle-kit:
         specifier: ^0.31.4
         version: 0.31.8
-      esbuild:
-        specifier: ^0.25.0
-        version: 0.25.12
       gh-pages:
         specifier: ^6.3.0
         version: 6.3.0
@@ -285,9 +288,6 @@ importers:
       typescript:
         specifier: 5.9.3
         version: 5.9.3
-      vite:
-        specifier: ^7.1.7
-        version: 7.3.1(@types/node@24.10.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)
       vitest:
         specifier: ^2.1.4
         version: 2.1.9(@types/node@24.10.6)(lightningcss@1.30.2)
