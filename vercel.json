@@ -1,8 +1,18 @@
 {
+  "version": 2,
   "rewrites": [
+    {
+      "source": "/smart-factory-iot/assets/(.*)",
+      "destination": "/assets/$1"
+    },
+    {
+      "source": "/smart-factory-iot/(.*)",
+      "destination": "/$1"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
+
 }
