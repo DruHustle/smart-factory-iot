@@ -3,16 +3,15 @@
   "rewrites": [
     {
       "source": "/smart-factory-iot/assets/(.*)",
-      "destination": "/assets/$1"
+      "destination": "/public/assets/$1"
     },
     {
       "source": "/smart-factory-iot/(.*)",
-      "destination": "/$1"
+      "destination": "/public/$1"
     },
     {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/public/index.html"
     }
   ]
-
 }
