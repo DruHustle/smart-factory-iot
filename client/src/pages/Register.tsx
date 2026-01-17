@@ -1,3 +1,9 @@
+/**
+ * Register Page Component
+ * * Professional registration interface matching IMSOP design.
+ * Matches the Login page UI exactly.
+ */
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -37,95 +43,128 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-900/20 via-slate-950 to-slate-950" />
-      
-      <Card className="w-full max-w-md bg-slate-900/50 border-slate-800 backdrop-blur-xl relative z-10">
+    <div className="min-h-screen flex items-center justify-center bg-[url('/images/industrial-blur-bg.jpg')] bg-cover bg-center relative">
+      {/* Dark Overlay - Matches Login Page */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+      {/* Register Card */}
+      <Card className="w-full max-w-md glass-panel border-white/10 relative z-10 animate-in fade-in zoom-in duration-500">
         <CardHeader className="space-y-1 text-center">
+          {/* Logo - Matches Login Page Gradient and Shadow */}
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 rounded-lg bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <Factory className="w-7 h-7 text-white" />
+            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary to-orange-500 flex items-center justify-center shadow-[0_0_20px_var(--primary)]">
+              <Factory className="w-7 h-7 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight text-white">Create Account</CardTitle>
-          <CardDescription className="text-slate-400">
-            Join the Smart Factory IoT platform
+
+          {/* Title */}
+          <CardTitle className="text-2xl font-bold tracking-wide">
+            Create Account
+          </CardTitle>
+
+          {/* Subtitle */}
+          <CardDescription className="text-muted-foreground">
+            Join the Smart Factory IoT Platform
           </CardDescription>
         </CardHeader>
+
         <CardContent className="space-y-6">
+          {/* Registration Form */}
           <form onSubmit={handleRegister} className="space-y-4">
+            
+            {/* Full Name Field */}
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-slate-300">Full Name</Label>
+              <Label htmlFor="name" className="text-foreground font-medium">
+                Full Name
+              </Label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="name"
                   type="text"
-                  placeholder="John Doe"
+                  placeholder="Enter your full name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="pl-10 bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-600"
+                  className="pl-10 bg-background/50 border-white/20 focus:border-primary"
                   required
                 />
               </div>
             </div>
 
+            {/* Email Field */}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-slate-300">Email</Label>
+              <Label htmlFor="email" className="text-foreground font-medium">
+                Email
+              </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="email"
                   type="email"
                   placeholder="name@factory.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-600"
+                  className="pl-10 bg-background/50 border-white/20 focus:border-primary"
                   required
                 />
               </div>
             </div>
-            
+
+            {/* Password Field */}
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-slate-300">Password</Label>
+              <Label htmlFor="password" className="text-foreground font-medium">
+                Password
+              </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder="Create a secure password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10 bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-600"
+                  className="pl-10 pr-10 bg-background/50 border-white/20 focus:border-primary"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
-            
-            <Button 
+
+            {/* Register Button - Matches Login Page Primary Glow */}
+            <Button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold"
+              className="w-full bg-primary hover:bg-primary/80 text-primary-foreground shadow-[0_0_15px_var(--primary)] font-semibold"
             >
-              {isLoading ? "Creating account..." : "Register"}
+              {isLoading ? "Creating account..." : "Register Now"}
             </Button>
           </form>
-          
+
+          {/* Toggle to Login */}
           <div className="text-center text-sm">
-            <span className="text-slate-400">Already have an account? </span>
-            <button 
-              onClick={() => navigate("/login")}
-              className="text-blue-400 hover:text-blue-300 font-medium"
+            <span className="text-muted-foreground">Already have an account? </span>
+            <button
+              onClick={() => navigate('/login')}
+              className="text-primary hover:underline font-semibold"
             >
               Sign In
             </button>
+          </div>
+
+          {/* Footer - Matches Login Page */}
+          <div className="mt-6 text-center text-xs text-muted-foreground space-y-1">
+            <p>Protected by Smart Factory Identity Service</p>
+            <p>v1.0.0-stable</p>
           </div>
         </CardContent>
       </Card>
