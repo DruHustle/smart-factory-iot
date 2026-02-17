@@ -7,15 +7,24 @@ import { z } from "zod";
 import * as db from "./db";
 import * as mock from "./mockData";
 import * as pdf from "./pdfExport";
-import { notificationService, NotificationType, NotificationSeverity } from "./notifications";
+import { notificationService } from "./notifications";
 import { deviceGroupingService, GroupType } from "./deviceGrouping";
 
-// Enums
 const deviceTypeEnum = z.enum(["sensor", "actuator", "controller", "gateway"]);
 const deviceStatusEnum = z.enum(["online", "offline", "maintenance", "error"]);
 const alertSeverityEnum = z.enum(["info", "warning", "critical"]);
 const deploymentStatusEnum = z.enum(["pending", "downloading", "installing", "completed", "failed", "rolled_back"]);
 const metricEnum = z.enum(["temperature", "humidity", "vibration", "power", "pressure", "rpm"]);
+
+const thresholdInputSchema = z.object({
+  deviceId: z.number(),
+  metric: metricEnum,
+  minValue: z.number().nullable().optional(),
+  maxValue: z.number().nullable().optional(),
+  warningMin: z.number().nullable().optional(),
+  warningMax: z.number().nullable().optional(),
+  enabled: z.boolean().optional(),
+});
 
 export const appRouter = router({
   system: systemRouter,
@@ -34,7 +43,7 @@ export const appRouter = router({
       }),
     register: publicProcedure
       .input(z.object({ email: z.string().email(), password: z.string(), name: z.string() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         if (await db.getUserByEmail(input.email)) throw new Error("Email already registered");
         const user = await db.createUser({
           email: input.email,
@@ -43,7 +52,10 @@ export const appRouter = router({
           openId: Math.random().toString(36).substring(7),
           role: "user",
         });
-        return { success: true, user };
+
+        const token = await sdk.createSessionToken(user);
+        ctx.res.cookie(COOKIE_NAME, token, getSessionCookieOptions(ctx.req));
+        return { token, user };
       }),
     logout: publicProcedure.mutation(({ ctx }) => {
       ctx.res.clearCookie(COOKIE_NAME, { ...getSessionCookieOptions(ctx.req), maxAge: -1 });
@@ -73,15 +85,89 @@ export const appRouter = router({
     create: protectedProcedure.input(z.object({ deviceId: z.number(), temperature: z.number().optional(), timestamp: z.number() })).mutation(async ({ input }) => { await db.createSensorReading(input); return { success: true }; }),
   }),
 
+  thresholds: router({
+    getForDevice: publicProcedure
+      .input(z.object({ deviceId: z.number() }))
+      .query(({ input }) => db.getAlertThresholds(input.deviceId)),
+    upsert: protectedProcedure
+      .input(thresholdInputSchema)
+      .mutation(async ({ input }) => {
+        const existing = await db.getAlertThresholds(input.deviceId);
+        const match = existing.find((x) => x.metric === input.metric);
+        if (match) {
+          return db.updateAlertThreshold(match.id, {
+            minValue: input.minValue ?? null,
+            maxValue: input.maxValue ?? null,
+            warningMin: input.warningMin ?? null,
+            warningMax: input.warningMax ?? null,
+            enabled: input.enabled ?? true,
+          });
+        }
+
+        return db.createAlertThreshold({
+          deviceId: input.deviceId,
+          metric: input.metric,
+          minValue: input.minValue ?? null,
+          maxValue: input.maxValue ?? null,
+          warningMin: input.warningMin ?? null,
+          warningMax: input.warningMax ?? null,
+          enabled: input.enabled ?? true,
+        });
+      }),
+    upsertForDevice: protectedProcedure
+      .input(z.object({
+        deviceId: z.number(),
+        thresholds: z.array(thresholdInputSchema),
+      }))
+      .mutation(async ({ input }) => {
+        await db.upsertAlertThresholds(input.deviceId, input.thresholds.map((t) => ({
+          deviceId: t.deviceId,
+          metric: t.metric,
+          minValue: t.minValue ?? null,
+          maxValue: t.maxValue ?? null,
+          warningMin: t.warningMin ?? null,
+          warningMax: t.warningMax ?? null,
+          enabled: t.enabled ?? true,
+        })));
+
+        return db.getAlertThresholds(input.deviceId);
+      }),
+  }),
+
   alerts: router({
     list: publicProcedure.input(z.object({ deviceId: z.number().optional(), status: z.enum(["active", "acknowledged", "resolved"]).optional(), severity: alertSeverityEnum.optional(), limit: z.number().optional() }).optional()).query(({ input }) => db.getAlerts(input)),
     update: protectedProcedure.input(z.object({ id: z.number(), status: z.enum(["active", "acknowledged", "resolved"]), acknowledgedBy: z.number().optional() })).mutation(({ input: { id, ...data } }) => db.updateAlert(id, data)),
+    updateStatus: protectedProcedure
+      .input(z.object({ id: z.number(), status: z.enum(["active", "acknowledged", "resolved"]) }))
+      .mutation(({ input }) => db.updateAlert(input.id, { status: input.status })),
     getStats: publicProcedure.query(() => db.getAlertStats()),
+  }),
+
+  firmware: router({
+    list: publicProcedure
+      .input(z.object({ deviceType: deviceTypeEnum.optional() }).optional())
+      .query(({ input }) => db.getFirmwareVersions(input?.deviceType)),
   }),
 
   ota: router({
     deploy: protectedProcedure.input(z.object({ deviceId: z.number(), firmwareVersionId: z.number() })).mutation(async ({ input }) => db.createOtaDeployment({ ...input, status: "pending" })),
-    list: publicProcedure.input(z.object({ deviceId: z.number().optional() }).optional()).query(({ input }) => db.getOtaDeployments(input)),
+    list: publicProcedure.input(z.object({ deviceId: z.number().optional(), limit: z.number().optional() }).optional()).query(({ input }) => db.getOtaDeployments(input)),
+    rollback: protectedProcedure
+      .input(z.object({ deploymentId: z.number() }))
+      .mutation(async ({ input }) => {
+        const deployments = await db.getOtaDeployments();
+        const deployment = deployments.find((d) => d.id === input.deploymentId);
+        if (!deployment) {
+          throw new Error("Deployment not found");
+        }
+
+        await db.updateOtaDeployment(input.deploymentId, { status: "rolled_back" });
+
+        return {
+          success: true,
+          restoredVersion: deployment.firmwareVersionId,
+        };
+      }),
   }),
 
   analytics: router({
@@ -89,6 +175,22 @@ export const appRouter = router({
     getEnergy: publicProcedure.input(z.object({ startTime: z.number(), endTime: z.number(), intervalMs: z.number().optional() })).query(async ({ input }) => {
       const devices = await db.getDevices();
       return db.getAggregatedReadings(devices.map(d => d.id), input.startTime, input.endTime, input.intervalMs);
+    }),
+    getEnergyConsumption: publicProcedure.input(z.object({ startTime: z.number(), endTime: z.number(), intervalMs: z.number().optional() })).query(async ({ input }) => {
+      const devices = await db.getDevices();
+      return db.getAggregatedReadings(devices.map(d => d.id), input.startTime, input.endTime, input.intervalMs);
+    }),
+    getOEEMetrics: publicProcedure.query(async () => {
+      const availability = 92;
+      const performance = 88;
+      const quality = 96;
+      const oee = Number(((availability * performance * quality) / 10000).toFixed(2));
+      const trend = Array.from({ length: 7 }, (_, i) => ({
+        day: i + 1,
+        value: Number((oee - 2 + Math.random() * 4).toFixed(2)),
+      }));
+
+      return { availability, performance, quality, oee, trend };
     }),
   }),
 
@@ -101,7 +203,74 @@ export const appRouter = router({
         db.getAlertThresholds(input.deviceId),
         db.getAlerts({ deviceId: input.deviceId, limit: 50 }),
       ]);
-      return { html: pdf.generateDeviceReportHtml({ device, readings, thresholds, alerts, dateRange: { start: new Date(input.startTime), end: new Date(input.endTime) } }), filename: `report-${device.deviceId}.html` };
+      return { html: pdf.generateDeviceReportHtml({ device, readings, thresholds, alerts, dateRange: { start: new Date(input.startTime), end: new Date(input.endTime) } }), filename: `device-report-${device.deviceId}.html` };
+    }),
+    analyticsReport: publicProcedure.input(z.object({ startTime: z.number(), endTime: z.number() })).mutation(async ({ input }) => {
+      const [deviceStats, alertStats, devices] = await Promise.all([
+        db.getDeviceStats(),
+        db.getAlertStats(),
+        db.getDevices(),
+      ]);
+      const energyData = await db.getAggregatedReadings(devices.map((d) => d.id), input.startTime, input.endTime);
+
+      const oeeMetrics = {
+        availability: 92,
+        performance: 88,
+        quality: 96,
+        oee: Number(((92 * 88 * 96) / 10000).toFixed(2)),
+      };
+
+      return {
+        html: pdf.generateAnalyticsReportHtml({
+          overview: {
+            totalDevices: deviceStats.total,
+            onlineDevices: deviceStats.online,
+            activeAlerts: alertStats.active,
+            criticalAlerts: alertStats.critical,
+          },
+          oeeMetrics,
+          energyData,
+          dateRange: { start: new Date(input.startTime), end: new Date(input.endTime) },
+        }),
+        filename: `analytics-report-${Date.now()}.html`,
+      };
+    }),
+    alertHistoryReport: publicProcedure.input(z.object({ startTime: z.number(), endTime: z.number(), severity: alertSeverityEnum.optional() })).mutation(async ({ input }) => {
+      const allAlerts = await db.getAlerts({ limit: 500 });
+      const filtered = allAlerts.filter((a) => {
+        const createdAtMs = new Date(a.createdAt).getTime();
+        const inRange = createdAtMs >= input.startTime && createdAtMs <= input.endTime;
+        const matchesSeverity = !input.severity || a.severity === input.severity;
+        return inRange && matchesSeverity;
+      });
+
+      const alerts = filtered.map((a) => ({
+        id: a.id,
+        deviceName: `Device ${a.deviceId}`,
+        message: a.message,
+        type: a.type,
+        severity: a.severity,
+        status: a.status,
+        createdAt: a.createdAt,
+        resolvedAt: a.resolvedAt,
+      }));
+
+      const summary = {
+        total: alerts.length,
+        critical: alerts.filter((a) => a.severity === "critical").length,
+        warning: alerts.filter((a) => a.severity === "warning").length,
+        info: alerts.filter((a) => a.severity === "info").length,
+        resolved: alerts.filter((a) => a.status === "resolved").length,
+      };
+
+      return {
+        html: pdf.generateAlertHistoryReportHtml({
+          alerts,
+          summary,
+          dateRange: { start: new Date(input.startTime), end: new Date(input.endTime) },
+        }),
+        filename: `alert-history-report-${Date.now()}.html`,
+      };
     }),
   }),
 

@@ -60,10 +60,12 @@ setup_environment() {
             print_info "Creating .env from .env.example..."
             cp .env.example .env
             # Set local defaults for development
-            sed -i 's|DATABASE_URL=.*|DATABASE_URL="mysql://root@localhost:3306/smart_factory_iot"|' .env
-            sed -i 's|VITE_API_URL=.*|VITE_API_URL="http://localhost:3000/api"|' .env
-            sed -i 's|BACKEND_URL=.*|BACKEND_URL="http://localhost:3000"|' .env
-            sed -i 's|NODE_ENV=.*|NODE_ENV=development|' .env
+            sed -i.bak 's|DATABASE_URL=.*|DATABASE_URL="postgres://postgres:postgres@localhost:5432/smart_factory_iot"|' .env
+            sed -i.bak 's|DATABASE_SSL_MODE=.*|DATABASE_SSL_MODE="disable"|' .env
+            sed -i.bak 's|VITE_API_URL=.*|VITE_API_URL="http://localhost:3000/api"|' .env
+            sed -i.bak 's|BACKEND_URL=.*|BACKEND_URL="http://localhost:3000"|' .env
+            sed -i.bak 's|NODE_ENV=.*|NODE_ENV=development|' .env
+            rm -f .env.bak
             print_success ".env created with local development defaults"
         else
             print_error ".env.example not found"

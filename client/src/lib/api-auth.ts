@@ -1,12 +1,14 @@
 /**
- * REST API Authentication Service
- * 
- * Handles authentication using standard REST API calls instead of tRPC.
- * Provides login, logout, and user session management.
+ * tRPC Authentication Service
+ *
+ * Keeps frontend auth in sync with server auth router.
  */
 
+import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
+import superjson from "superjson";
 import { safeLocalStorage, safeSessionStorage } from "./storage";
 import type { User } from "../../../drizzle/schema";
+import type { AppRouter } from "../../../server/routers";
 
 export interface AuthResponse {
   success: boolean;
@@ -15,11 +17,8 @@ export interface AuthResponse {
   error?: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
-/**
- * Get the best available storage for the current environment
- */
 function getAvailableStorage() {
   if (safeLocalStorage.isAvailable()) {
     return safeLocalStorage;
@@ -30,76 +29,55 @@ function getAvailableStorage() {
   return safeLocalStorage;
 }
 
-/**
- * Get the stored authentication token
- */
+function getTRPCUrl() {
+  return `${API_BASE_URL}/trpc`;
+}
+
+const trpcAuthClient = createTRPCProxyClient<AppRouter>({
+  links: [
+    httpBatchLink({
+      url: getTRPCUrl(),
+      transformer: superjson,
+      fetch(input, init) {
+        const token = getAuthToken();
+        return globalThis.fetch(input, {
+          ...(init ?? {}),
+          credentials: "include",
+          headers: {
+            ...(init?.headers ?? {}),
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+      },
+    }),
+  ],
+});
+
 export function getAuthToken(): string | null {
   const storage = getAvailableStorage();
   return storage.getItem("token");
 }
 
-/**
- * Set the authentication token
- */
 export function setAuthToken(token: string): void {
   const storage = getAvailableStorage();
   storage.setItem("token", token);
 }
 
-/**
- * Clear the authentication token
- */
 export function clearAuthToken(): void {
   const storage = getAvailableStorage();
   storage.removeItem("token");
 }
 
-/**
- * Make an authenticated API request
- */
-async function makeAuthenticatedRequest(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<Response> {
-  const token = getAuthToken();
-  const headers = new Headers(options.headers || {});
-
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object" && "message" in error && typeof (error as { message?: unknown }).message === "string") {
+    return (error as { message: string }).message;
   }
-
-  headers.set("Content-Type", "application/json");
-
-  return fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-    credentials: "include",
-  });
+  return fallback;
 }
 
-/**
- * Login with email and password
- */
 export async function login(email: string, password: string): Promise<AuthResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password }),
-      credentials: "include",
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return {
-        success: false,
-        error: error.message || "Login failed",
-      };
-    }
-
-    const data = await response.json();
+    const data = await trpcAuthClient.auth.login.mutate({ email, password });
 
     if (data.token) {
       setAuthToken(data.token);
@@ -110,41 +88,21 @@ export async function login(email: string, password: string): Promise<AuthRespon
       token: data.token,
       user: data.user,
     };
-  } catch (error: any) {
+  } catch (error) {
     return {
       success: false,
-      error: error.message || "Network error",
+      error: getErrorMessage(error, "Login failed"),
     };
   }
 }
 
-/**
- * Register a new account
- */
 export async function register(
   email: string,
   password: string,
-  name: string
+  name: string,
 ): Promise<AuthResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/register`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password, name }),
-      credentials: "include",
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return {
-        success: false,
-        error: error.message || "Registration failed",
-      };
-    }
-
-    const data = await response.json();
+    const data = await trpcAuthClient.auth.register.mutate({ email, password, name });
 
     if (data.token) {
       setAuthToken(data.token);
@@ -155,70 +113,50 @@ export async function register(
       token: data.token,
       user: data.user,
     };
-  } catch (error: any) {
+  } catch (error) {
     return {
       success: false,
-      error: error.message || "Network error",
+      error: getErrorMessage(error, "Registration failed"),
     };
   }
 }
 
-/**
- * Get current user
- */
 export async function getCurrentUser(): Promise<AuthResponse> {
   try {
-    const response = await makeAuthenticatedRequest("/auth/me");
+    const user = await trpcAuthClient.auth.me.query();
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        clearAuthToken();
-      }
+    if (!user) {
+      clearAuthToken();
       return {
         success: false,
-        error: "Failed to fetch user",
+        error: "No active session",
       };
     }
-
-    const user = await response.json();
 
     return {
       success: true,
       user,
     };
-  } catch (error: any) {
+  } catch (error) {
+    clearAuthToken();
     return {
       success: false,
-      error: error.message || "Network error",
+      error: getErrorMessage(error, "Failed to fetch user"),
     };
   }
 }
 
-/**
- * Logout
- */
 export async function logout(): Promise<AuthResponse> {
   try {
-    await makeAuthenticatedRequest("/auth/logout", {
-      method: "POST",
-    });
-
-    clearAuthToken();
-
-    return {
-      success: true,
-    };
-  } catch (error: any) {
-    clearAuthToken();
-    return {
-      success: true,
-    };
+    await trpcAuthClient.auth.logout.mutate();
+  } catch (_error) {
+    // Ignore network/logout errors and clear client state regardless.
   }
+
+  clearAuthToken();
+  return { success: true };
 }
 
-/**
- * Check if running on GitHub Pages (no backend available)
- */
 export function isGitHubPagesDeployment(): boolean {
   if (typeof window === "undefined") return false;
 

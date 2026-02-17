@@ -1,5 +1,7 @@
+import "dotenv/config";
 import { eq, and, gte, lte, desc, asc, sql, inArray } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import * as schema from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -29,11 +31,23 @@ export type OtaDeployment = schema.OtaDeployment;
 export type InsertOtaDeployment = schema.InsertOtaDeployment;
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let _sqlClient: ReturnType<typeof postgres> | null = null;
 
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
+  const databaseUrl = process.env.DATABASE_URL || ENV.databaseUrl;
+  if (!_db && databaseUrl) {
     try {
-      _db = drizzle(process.env.DATABASE_URL, { schema, mode: "default" });
+      const caCert = process.env.DATABASE_CA_CERT?.replace(/\\n/g, "\n");
+      const sslMode =
+        process.env.DATABASE_SSL_MODE ??
+        (process.env.NODE_ENV === "production" ? "require" : "disable");
+      const ssl = caCert
+        ? { ca: caCert, rejectUnauthorized: true }
+        : sslMode === "disable"
+          ? undefined
+          : "require";
+      _sqlClient = postgres(databaseUrl, { ssl });
+      _db = drizzle(_sqlClient, { schema });
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -114,7 +128,7 @@ export async function getDeviceByDeviceId(deviceId: string): Promise<Device | un
 
 export async function updateDevice(id: number, data: Partial<InsertDevice>): Promise<Device | undefined> {
   return withDb(async (db) => {
-    await db.update(devices).set(data).where(eq(devices.id, id));
+    await db.update(devices).set({ ...data, updatedAt: new Date() }).where(eq(devices.id, id));
     return getDeviceById(id);
   });
 }
@@ -242,16 +256,14 @@ export async function getAlertThresholds(deviceId: number): Promise<AlertThresho
 
 export async function createAlertThreshold(threshold: InsertAlertThreshold): Promise<AlertThreshold> {
   return withDb(async (db) => {
-    const result = await db.insert(alertThresholds).values(threshold);
-    const id = Number(result[0].insertId);
-    const created = await db.select().from(alertThresholds).where(eq(alertThresholds.id, id)).limit(1);
-    return created[0];
+    const [created] = await db.insert(alertThresholds).values(threshold).returning();
+    return created;
   });
 }
 
 export async function updateAlertThreshold(id: number, data: Partial<InsertAlertThreshold>): Promise<AlertThreshold | undefined> {
   return withDb(async (db) => {
-    await db.update(alertThresholds).set(data).where(eq(alertThresholds.id, id));
+    await db.update(alertThresholds).set({ ...data, updatedAt: new Date() }).where(eq(alertThresholds.id, id));
     const result = await db.select().from(alertThresholds).where(eq(alertThresholds.id, id)).limit(1);
     return result[0];
   });
@@ -276,10 +288,8 @@ export async function upsertAlertThresholds(deviceId: number, thresholds: Insert
 // ============ Alert Functions ============
 export async function createAlert(alert: InsertAlert): Promise<Alert> {
   return withDb(async (db) => {
-    const result = await db.insert(alerts).values(alert);
-    const id = Number(result[0].insertId);
-    const created = await db.select().from(alerts).where(eq(alerts.id, id)).limit(1);
-    return created[0];
+    const [created] = await db.insert(alerts).values(alert).returning();
+    return created;
   });
 }
 
@@ -304,7 +314,7 @@ export async function getAlerts(filters?: {
 
 export async function updateAlert(id: number, data: Partial<InsertAlert>): Promise<Alert | undefined> {
   return withDb(async (db) => {
-    await db.update(alerts).set(data).where(eq(alerts.id, id));
+    await db.update(alerts).set({ ...data, updatedAt: new Date() }).where(eq(alerts.id, id));
     const result = await db.select().from(alerts).where(eq(alerts.id, id)).limit(1);
     return result[0];
   });
@@ -344,10 +354,8 @@ export async function getFirmwareVersions(deviceType?: Device["type"]) {
 
 export async function createOtaDeployment(deployment: InsertOtaDeployment): Promise<OtaDeployment> {
   return withDb(async (db) => {
-    const result = await db.insert(otaDeployments).values(deployment);
-    const id = Number(result[0].insertId);
-    const created = await db.select().from(otaDeployments).where(eq(otaDeployments.id, id)).limit(1);
-    return created[0];
+    const [created] = await db.insert(otaDeployments).values(deployment).returning();
+    return created;
   });
 }
 
@@ -361,7 +369,7 @@ export async function getOtaDeployments(filters?: { deviceId?: number; limit?: n
 
 export async function updateOtaDeployment(id: number, data: Partial<InsertOtaDeployment>): Promise<OtaDeployment | undefined> {
   return withDb(async (db) => {
-    await db.update(otaDeployments).set(data).where(eq(otaDeployments.id, id));
+    await db.update(otaDeployments).set({ ...data, updatedAt: new Date() }).where(eq(otaDeployments.id, id));
     const result = await db.select().from(otaDeployments).where(eq(otaDeployments.id, id)).limit(1);
     return result[0];
   });

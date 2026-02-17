@@ -4,6 +4,9 @@ import {
   register as apiRegister,
   logout as apiLogout,
   getCurrentUser,
+  getAuthToken,
+  setAuthToken,
+  clearAuthToken,
 } from "@/lib/api-auth";
 import { mockLogin, mockRegister, mockGetCurrentUser } from "@/lib/mock-auth";
 import type { User } from "../../../drizzle/schema";
@@ -25,7 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
 
       if (!token) {
         setUser(null);
@@ -40,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (result.success && result.user) {
             setUser(result.user);
           } else {
-            localStorage.removeItem("token");
+            clearAuthToken();
             setUser(null);
           }
         } 
@@ -50,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (result.success && result.user) {
             setUser(result.user);
           } else {
-            localStorage.removeItem("token");
+            clearAuthToken();
             setUser(null);
           }
         }
@@ -75,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Use local Mock Auth for demo accounts
         result = await mockLogin(email, password);
         if (result.success && result.token) {
-          localStorage.setItem("token", result.token); // Should be prefixed with 'mock_'
+          setAuthToken(result.token); // Should be prefixed with 'mock_'
         }
       } else {
         // Use Render Backend for all other accounts
@@ -111,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
 
       // Only notify backend if it's a real session
       if (token && !token.startsWith('mock_')) {
@@ -121,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Logout request failed:", error);
     } finally {
       // Always clear local state
-      localStorage.removeItem("token");
+      clearAuthToken();
       setUser(null);
     }
   };
