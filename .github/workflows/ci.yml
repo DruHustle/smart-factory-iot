@@ -16,7 +16,34 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run E2E smoke tests
+        run: pnpm e2e
+
   build:
+    needs: e2e
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -40,7 +67,6 @@ jobs:
         id: build
         run: pnpm build
 
-      # Defines where the static assets are located
       - name: Verify build output
         run: |
           if [ ! -d "dist/public" ]; then

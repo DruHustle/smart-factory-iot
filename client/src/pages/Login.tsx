@@ -2,7 +2,7 @@
  * Login Page Component
  * 
  * Professional login interface matching IMSOP design.
- * Uses REST API authentication with demo account buttons.
+ * Uses tRPC authentication with demo account buttons.
  */
 
 import { Button } from "@/components/ui/button";

@@ -11,6 +11,7 @@ import DashboardLayout from "./components/DashboardLayout";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
 import Monitoring from "./pages/Monitoring";
 import Devices from "./pages/Devices";
 import DeviceDetail from "./pages/DeviceDetail";
@@ -38,7 +39,9 @@ function AppRouter() {
     return (
       <WouterRouter hook={useHashLocation}>
         <Switch>
+          <Route path="/login" component={Login} />
           <Route path="/register" component={Register} />
+          <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/" component={Login} />
           <Route component={Login} />
         </Switch>

@@ -86,6 +86,7 @@ pnpm dev
 - Frontend auth now uses tRPC procedures: `auth.login`, `auth.register`, `auth.me`, `auth.logout`.
 - Session token is sent as bearer token and cookie (`credentials: include`) for server-side auth.
 - Registration returns and stores a valid token immediately, so users are logged in after sign-up.
+- `/forgot-password` is implemented as a UI flow placeholder until reset APIs are added.
 
 ## Verification Commands
 
@@ -93,6 +94,72 @@ pnpm dev
 pnpm check
 pnpm test
 ```
+
+## Infrastructure Setup
+
+### Local Development Infrastructure
+
+1. Start PostgreSQL:
+
+```bash
+docker run --name smart-factory-pg \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=smart_factory_iot \
+  -p 5432:5432 -d postgres:16
+```
+
+2. Apply schema:
+
+```bash
+pnpm db:push
+```
+
+3. Start app:
+
+```bash
+pnpm dev
+```
+
+### Production Infrastructure (Vercel + Render + Aiven)
+
+1. Backend service on Render (Node/tRPC app from this same repo).
+2. Database on Aiven PostgreSQL.
+3. Frontend static hosting on Vercel.
+
+Required Render env vars:
+
+- `NODE_ENV=production`
+- `DATABASE_URL=<aiven-postgres-uri>`
+- `DATABASE_SSL_MODE=require`
+- `DATABASE_CA_CERT=<aiven-ca-cert>`
+- `JWT_SECRET=<strong-secret>`
+- `ALLOWED_ORIGIN=https://<your-vercel-app>.vercel.app`
+
+Required Vercel env vars:
+
+- `VITE_API_URL=https://<your-render-service>.onrender.com/api`
+- `BACKEND_URL=https://<your-render-service>.onrender.com`
+
+Production rollout order:
+
+1. Deploy Render backend.
+2. Run `pnpm db:push` against production DB.
+3. Deploy frontend on Vercel.
+4. Execute UI/auth smoke checklist below.
+
+## UI Smoke Test Checklist
+
+1. Open `http://localhost:3000/#/login`.
+2. Click `Forgot password?`, verify it opens the reset screen, then click back to login.
+3. Register a new user and confirm redirect to dashboard.
+4. Logout from sidebar menu and confirm redirect to login.
+5. Login again and verify dashboard loads.
+6. Verify key action buttons:
+   - Devices: create, view details, configure thresholds, delete.
+   - Alerts: acknowledge and resolve from row actions.
+   - OTA: deploy firmware and rollback completed/failed deployment.
+   - Exports: device/analytics/alert history generate downloadable HTML.
 
 ## Deployment Database Policy
 
