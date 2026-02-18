@@ -41,11 +41,12 @@ export async function getDb() {
       const sslMode =
         process.env.DATABASE_SSL_MODE ??
         (process.env.NODE_ENV === "production" ? "require" : "disable");
-      const ssl = caCert
-        ? { ca: caCert, rejectUnauthorized: true }
-        : sslMode === "disable"
-          ? undefined
-          : "require";
+      const ssl =
+        sslMode === "disable"
+          ? false
+          : caCert
+            ? { ca: caCert, rejectUnauthorized: true }
+            : "require";
       _sqlClient = postgres(databaseUrl, { ssl });
       _db = drizzle(_sqlClient, { schema });
     } catch (error) {

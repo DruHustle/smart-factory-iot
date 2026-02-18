@@ -30,6 +30,20 @@ jobs:
   build-and-test:
     name: Build and Test
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: smart_factory_iot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d smart_factory_iot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
       - name: Checkout Code
@@ -49,10 +63,19 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Run Database Migrations
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/smart_factory_iot
+          DATABASE_SSL_MODE: disable
+        run: pnpm exec drizzle-kit migrate
+
       - name: Type Check
         run: pnpm check
 
       - name: Run Unit Tests
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/smart_factory_iot
+          DATABASE_SSL_MODE: disable
         run: pnpm test
 
       - name: Install Playwright Browsers
