@@ -1,25 +1,38 @@
-name: Build and Deploy to GitHub Pages
+# ========================================
+# Smart Factory IoT Frontend - CI/CD Pipeline (Vercel)
+# ========================================
+# This workflow automates the following:
+# 1. Continuous Integration (CI):
+#    - Restores dependencies
+#    - Runs type checks and tests
+#    - Runs E2E smoke tests
+#    - Builds the frontend bundle
+# 2. Continuous Deployment (CD):
+#    - Deploys production build to Vercel on main branch pushes
+# ========================================
+
+name: CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
 
 jobs:
-  e2e:
+  # ----------------------------------------
+  # Job 1: Build and Test
+  # ----------------------------------------
+  build-and-test:
+    name: Build and Test
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Setup PNPM
@@ -27,47 +40,31 @@ jobs:
         with:
           version: 10
 
-      - name: Setup Node
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Install Playwright browsers
+      - name: Type Check
+        run: pnpm check
+
+      - name: Run Unit Tests
+        run: pnpm test
+
+      - name: Install Playwright Browsers
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Run E2E smoke tests
+      - name: Run E2E Smoke Tests
         run: pnpm e2e
 
-  build:
-    needs: e2e
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup PNPM
-        uses: pnpm/action-setup@v3
-        with:
-          version: 10
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Build
-        id: build
+      - name: Build Frontend
         run: pnpm build
 
-      - name: Verify build output
+      - name: Verify Build Output
         run: |
           if [ ! -d "dist/public" ]; then
             echo "Error: dist/public directory not found!"
@@ -77,26 +74,67 @@ jobs:
             echo "Error: dist/public/index.html not found!"
             exit 1
           fi
-          echo "✓ Build verification passed"
+          echo "Build verification passed"
           ls -lah dist/public/
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist/public
-
-  deploy-pages:
-    needs: build
+  # ----------------------------------------
+  # Job 2: Deploy to Vercel
+  # ----------------------------------------
+  deploy-vercel:
+    name: Deploy to Vercel
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+    environment: production
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - name: Deployment Success
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check Vercel credentials
+        id: vercel
         run: |
-          echo "✓ Successfully deployed to GitHub Pages"
-          echo "URL: ${{ steps.deployment.outputs.page_url }}"
+          if [ -n "${{ secrets.VERCEL_TOKEN }}" ] && [ -n "${{ secrets.VERCEL_ORG_ID }}" ] && [ -n "${{ secrets.VERCEL_PROJECT_ID }}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Vercel secrets are missing. Skipping deployment."
+          fi
+
+      - name: Pull Vercel Environment Information
+        if: steps.vercel.outputs.enabled == 'true'
+        run: pnpm dlx vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Vercel Artifacts
+        if: steps.vercel.outputs.enabled == 'true'
+        run: pnpm dlx vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel (Production)
+        id: deployment
+        if: steps.vercel.outputs.enabled == 'true'
+        run: |
+          DEPLOYMENT_URL=$(pnpm dlx vercel deploy --prebuilt --prod --yes --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
+          echo "Deployed to $DEPLOYMENT_URL"
+
+      - name: Deployment Summary
+        if: steps.vercel.outputs.enabled == 'true'
+        run: |
+          echo "Production URL: ${{ steps.deployment.outputs.url }}"

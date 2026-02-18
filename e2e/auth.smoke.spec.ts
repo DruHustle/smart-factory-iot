@@ -7,7 +7,7 @@ test.describe('smart-factory-iot auth smoke', () => {
 
     await page.getByRole('button', { name: /forgot password\?/i }).click();
     await expect(page).toHaveURL(/#\/forgot-password/);
-    await expect(page.getByRole('heading', { name: /forgot password/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /reset password/i })).toBeVisible();
 
     await page.getByRole('button', { name: /back to login/i }).click();
     await expect(page).toHaveURL(/#\/login/);

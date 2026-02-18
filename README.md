@@ -141,6 +141,12 @@ Required Vercel env vars:
 - `VITE_API_URL=https://<your-render-service>.onrender.com/api`
 - `BACKEND_URL=https://<your-render-service>.onrender.com`
 
+Required GitHub Actions secrets for Vercel deployment:
+
+- `VERCEL_TOKEN=<token-from-vercel-account-settings>`
+- `VERCEL_ORG_ID=<vercel-team-or-org-id>`
+- `VERCEL_PROJECT_ID=<vercel-project-id>`
+
 Production rollout order:
 
 1. Deploy Render backend.
