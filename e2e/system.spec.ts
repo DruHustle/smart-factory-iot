@@ -25,11 +25,14 @@ async function loginAs(page: import("@playwright/test").Page, role: "admin" | "o
 test("account routes and the signed-out flow render", async ({ page }) => {
   await page.goto("/#/login");
   await expect(page.getByRole("heading", { name: /smart factory iot/i })).toBeVisible();
-  await page.getByRole("button", { name: /forgot password\?/i }).click();
-  await expect(page).toHaveURL(/#\/forgot-password/);
+  await expect(page.getByRole("button", { name: /forgot password\?/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /sign up/i })).toHaveCount(0);
+  await expect(page.getByText(/accounts and password changes are managed by your administrator/i)).toBeVisible();
+  await page.goto("/#/forgot-password");
+  await expect(page.getByRole("heading", { name: /password assistance/i })).toBeVisible();
+  await expect(page.getByText(/self-service password reset is not available/i)).toBeVisible();
   await page.getByRole("button", { name: /back to login/i }).click();
-  await page.getByRole("button", { name: /sign up/i }).click();
-  await expect(page.getByRole("heading", { name: /create account/i })).toBeVisible();
+  await expect(page).toHaveURL(/#\/login/);
 });
 
 test("login and dashboard render without uncaught browser errors", async ({ page }) => {

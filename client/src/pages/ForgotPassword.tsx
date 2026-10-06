@@ -1,29 +1,10 @@
-import { useState } from "react";
 import { useLocation } from "wouter";
-import { toast } from "sonner";
-import { ArrowLeft, Factory, Mail } from "lucide-react";
+import { ArrowLeft, Factory } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 export default function ForgotPassword() {
   const [, navigate] = useLocation();
-  const [email, setEmail] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      // Placeholder until password reset API is implemented.
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      toast.info("Password reset is not enabled yet. Please contact an administrator.");
-      navigate("/login");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   return (
     <main className="relative flex min-h-screen items-center justify-center bg-[url('/images/industrial-blur-bg.webp')] bg-cover bg-center p-4 sm:p-6">
@@ -36,37 +17,16 @@ export default function ForgotPassword() {
               <Factory className="w-7 h-7 text-primary-foreground" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold tracking-wide">Reset Password</h1>
+          <h1 className="text-2xl font-bold tracking-wide">Password assistance</h1>
           <CardDescription className="text-muted-foreground">
-            Enter your account email to request a reset
+            Self-service password reset is not available.
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-foreground font-medium">
-                Email
-              </Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="name@factory.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 bg-background/50 border-white/20 focus:border-primary"
-                  required
-                />
-              </div>
-            </div>
-
-            <Button type="submit" disabled={isSubmitting} className="w-full">
-              {isSubmitting ? "Submitting..." : "Request Reset"}
-            </Button>
-          </form>
+          <p className="text-sm text-muted-foreground">
+            Contact your Smart Factory administrator through your approved support channel to regain access.
+          </p>
 
           <Button
             type="button"

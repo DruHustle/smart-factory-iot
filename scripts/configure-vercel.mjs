@@ -7,6 +7,10 @@ if (origin.protocol !== 'https:' || origin.username || origin.password || origin
 }
 const config = JSON.parse(await readFile('vercel.json', 'utf8'));
 config.rewrites = [
+  { source: '/health/live', destination: `${origin.origin}/health/live` },
+  { source: '/health/ready', destination: `${origin.origin}/health/ready` },
+  { source: '/api/health/live', destination: `${origin.origin}/health/live` },
+  { source: '/api/health/ready', destination: `${origin.origin}/health/ready` },
   { source: '/api/:path*', destination: `${origin.origin}/api/:path*` },
   { source: '/:path*', destination: '/index.html' },
 ];

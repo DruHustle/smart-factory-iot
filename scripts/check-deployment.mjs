@@ -35,6 +35,22 @@ const apiRewrite = vercel.rewrites?.find(item => item.source === '/api/:path*');
 if (!apiRewrite?.destination?.startsWith('https://configure-render-origin.example.invalid/')) {
   failures.push('committed Vercel API rewrite must retain the safe placeholder configured during release');
 }
+for (const [source, destinationPath] of [
+  ['/health/live', '/health/live'],
+  ['/health/ready', '/health/ready'],
+  ['/api/health/live', '/health/live'],
+  ['/api/health/ready', '/health/ready'],
+]) {
+  const rewrite = vercel.rewrites?.find(item => item.source === source);
+  if (rewrite?.destination !== `https://configure-render-origin.example.invalid${destinationPath}`) {
+    failures.push(`Vercel ${source} must proxy to the backend ${destinationPath} endpoint`);
+  }
+}
+const publicHeaders = vercel.headers?.find(item => item.source === '/:path*')?.headers ?? [];
+const headerValue = name => publicHeaders.find(item => item.key.toLowerCase() === name.toLowerCase())?.value;
+if (!headerValue('Content-Security-Policy')?.includes("frame-ancestors 'none'")) failures.push('Vercel responses must define a restrictive CSP');
+if (headerValue('X-Frame-Options') !== 'DENY') failures.push('Vercel responses must deny framing');
+if (!headerValue('Permissions-Policy')) failures.push('Vercel responses must define a Permissions-Policy');
 
 requireText(dockerfile, /^FROM mcr\.microsoft\.com\/dotnet\/aspnet:8\.0-noble AS runtime$/m, 'Render runtime must use the reviewed .NET Ubuntu image');
 requireText(dockerfile, /^USER app$/m, 'Render image must run as the non-root app user');

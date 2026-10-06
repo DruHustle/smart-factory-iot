@@ -105,6 +105,7 @@ async function startServer() {
   }
 
   const app = express();
+  app.disable("x-powered-by");
   configureTrustedProxies(app);
   const server = createServer(app);
 

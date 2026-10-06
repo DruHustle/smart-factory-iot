@@ -101,17 +101,10 @@ export default function Login() {
 
             {/* Password Field */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
+              <div>
                 <Label htmlFor="password" className="text-foreground font-medium">
                   Password
                 </Label>
-                <button
-                  type="button"
-                  onClick={() => navigate("/forgot-password")}
-                  className="text-xs text-primary hover:underline transition-colors"
-                >
-                  Forgot password?
-                </button>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -151,14 +144,8 @@ export default function Login() {
             </Button>
           </form>
 
-          <div className="text-center text-sm">
-            <span className="text-muted-foreground">Don't have an account? </span>
-            <button
-              onClick={() => navigate('/register')}
-              className="text-primary hover:underline font-semibold"
-            >
-              Sign Up
-            </button>
+          <div className="text-center text-sm text-muted-foreground">
+            Accounts and password changes are managed by your administrator.
           </div>
 
           {/* Demo Accounts Section */}
