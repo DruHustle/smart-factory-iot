@@ -15,7 +15,7 @@ const deliveryLabels: Record<string, string> = {
   pending: "Email queued",
   processing: "Email request in progress",
   retrying: "Email retry scheduled",
-  accepted: "Accepted by Microsoft Graph",
+  accepted: "Accepted by Resend",
   failed: "Email request failed",
   unconfigured: "Email provider not configured",
   no_recipient: "Email recipient not authorized",
@@ -105,7 +105,7 @@ export default function Notifications() {
     </div>
 
     <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-4 py-3 text-sm text-muted-foreground">
-      The inbox remains available when email is unavailable. Microsoft Graph acceptance means the provider accepted the request; it does not confirm mailbox delivery.
+      The inbox remains available when email is unavailable. Resend acceptance means the provider accepted the request; it does not confirm mailbox delivery.
     </div>
 
     {query.isLoading && <div role="status" className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" />Loading notifications…</div>}

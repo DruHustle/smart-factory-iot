@@ -72,6 +72,8 @@ describe("role based access control", () => {
       orderCodeOfManufacturer: "TEST-001",
     })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(engineer.users.list()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(engineer.assets.delete({ id: 1 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(engineer.devices.delete({ id: 1 })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(operator.assets.controlAda031({ id: 1, command: { action: "jog", joint: "base", direction: "increase" } }))
       .rejects.toMatchObject({ code: "FORBIDDEN" });
   });

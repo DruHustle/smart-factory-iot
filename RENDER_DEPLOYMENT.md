@@ -11,7 +11,7 @@ This is the canonical deployment guide for all three repositories. Production ru
 | TelemetryService | `127.0.0.1:3103` health only | Persistent MQTT intake, PostgreSQL storage and retryable dashboard/event delivery |
 | IdentityService | `127.0.0.1:3104` | Current dashboard profile/role checks; no separate account store or Entra login |
 | AnalyticsService | `127.0.0.1:3105` | SQL sample coverage, gaps and null-safe metrics for selected assets |
-| NotificationService | `127.0.0.1:3106` | Durable incident inbox delivery through Microsoft Graph |
+| NotificationService | `127.0.0.1:3106` | Durable incident inbox delivery through Resend |
 
 Supervisor restarts failed processes and forwards shutdown signals. Public readiness verifies the dashboard database, Redis, and all five .NET services. `/health/live` remains available during dependency outages. Private APIs do not appear as public Render routes. The Node API delegates identity/analytics calls using a separate service token and the authenticated account ID; the services reload the current account from PostgreSQL.
 
@@ -83,13 +83,13 @@ Identity/Analytics/Notification each cap their database pool at 20 connections. 
 
 Public registration is disabled in production. Bootstrap the first admin through the private Render shell/job with temporary `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD` (12–72 UTF-8 bytes) and optional `BOOTSTRAP_ADMIN_NAME`, then run `node scripts/bootstrap-admin.mjs`. This serialized command refuses to run if an admin already exists and never prints passwords. Remove the temporary secrets afterward. Administrators create further accounts in **User access** and provide their credentials through approved private channels. Development registration creates a viewer and cannot choose its role. There is no default production password or demo admin. Keep account promotion audit records outside the application until a full account audit log is implemented.
 
-## Microsoft Graph email
+## Resend email
 
-The inbox works without Graph. Enable email by configuring **all** of `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID`, `GRAPH_CLIENT_SECRET`, `GRAPH_SENDER_USER` and `GRAPH_ALLOWED_RECIPIENT_DOMAINS` (comma-separated). Partial credentials fail startup. Configure an Entra application with administrator-approved application mail permissions, restricted to the intended sender mailbox using Exchange application access controls. This is a mail integration; dashboard login still uses existing accounts.
+The inbox works without email delivery. Enable Resend by configuring **all** of `RESEND_API_KEY`, `RESEND_FROM` and `RESEND_ALLOWED_RECIPIENT_DOMAINS` (comma-separated). Partial credentials fail startup. Verify the sender domain in Resend, keep the API key server-only, and restrict recipients to the intended company domains. Delivery requests use a stable per-notification idempotency key. This is a mail integration; dashboard login still uses existing accounts.
 
 Emails go only to current engineer/admin dashboard accounts on explicitly allowed domains. The sender is fixed server-side. Incident insertion and assignment/resolution updates enqueue inbox records in the same PostgreSQL transaction via migration 0013. The worker claims jobs with a lease, retries up to eight failed attempts with bounded backoff, and retains failed requests. Authorized owners can retry eligible requests after configuration is corrected. Unconfigured or unauthorized recipients are displayed explicitly.
 
-Graph `202` is recorded as **accepted**, and never as confirmed mailbox delivery, according to [Microsoft's sendMail contract](https://learn.microsoft.com/en-us/graph/api/user-sendmail?view=graph-rest-1.0). Email delivery is at least once: a process/database failure after Graph accepts a request can result in a duplicate email. The application notification ID is included in a custom header for correlation. Validate sender restrictions, throttling and a controlled test mailbox in staging before enabling factory notifications.
+Resend `200`/`201` responses are recorded as **accepted**, never as confirmed mailbox delivery. Requests include a stable notification-specific idempotency key to suppress duplicates during retries, plus the application notification ID as a custom header for correlation. Validate the verified sender domain, recipient restrictions, throttling and a controlled test mailbox in staging before enabling factory notifications.
 
 ## Vercel settings
 

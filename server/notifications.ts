@@ -25,7 +25,7 @@ export async function retryNotification(userId: number, id: number) {
   return row;
 }
 export function notificationConfiguration() {
-  return [{ provider: "Microsoft Graph", inboxEnabled: true,
-    emailConfigured: ["GRAPH_TENANT_ID", "GRAPH_CLIENT_ID", "GRAPH_CLIENT_SECRET", "GRAPH_SENDER_USER", "GRAPH_ALLOWED_RECIPIENT_DOMAINS"].every(key => Boolean(process.env[key])),
+  return [{ provider: "Resend", inboxEnabled: true,
+    emailConfigured: ["RESEND_API_KEY", "RESEND_FROM", "RESEND_ALLOWED_RECIPIENT_DOMAINS"].every(key => Boolean(process.env[key])),
     workerEnabled: ["render-bundle", "compose", "local"].includes(process.env.BACKEND_DEPLOYMENT_MODE ?? "") }];
 }

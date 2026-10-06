@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Layers, Pencil, Plus, RefreshCw, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Layers, Pencil, Plus, RefreshCw, Search, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { CreateAssetDialog } from "@/components/CreateAssetDialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 const PAGE_SIZE = 25;
 
@@ -21,6 +23,16 @@ export default function Assets() {
   const [editingAsset, setEditingAsset] = useState<NonNullable<typeof assets>[number] | undefined>();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
+  const [deletingAsset, setDeletingAsset] = useState<NonNullable<typeof assets>[number] | null>(null);
+  const utils = trpc.useUtils();
+  const deleteMutation = trpc.assets.delete.useMutation({
+    onSuccess: async ({ edgeSyncFailures }) => {
+      toast.success(edgeSyncFailures.length ? "Asset deleted; one or more gateways need configuration resync" : "Asset deleted");
+      setDeletingAsset(null);
+      await utils.assets.list.invalidate();
+    },
+    onError: (mutationError) => toast.error(`Asset could not be deleted: ${mutationError.message}`),
+  });
 
   const filteredAssets = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
@@ -83,6 +95,7 @@ export default function Assets() {
                     <div className="flex justify-end gap-2">
                       {!asset.isDemo && !asset.aasxImported && <Button size="sm" variant="outline" aria-label={`Edit ${asset.name}`} onClick={() => { setEditingAsset(asset); setCreateOpen(true); }}><Pencil className="mr-2 h-4 w-4" />Edit</Button>}
                       <Button size="sm" aria-label={`Open AAS for ${asset.name}`} onClick={() => setLocation(`/assets/${asset.id}/aas`)}><Layers className="mr-2 h-4 w-4" />Open AAS</Button>
+                      {user?.role === "admin" && !asset.isDemo && <Button size="sm" variant="destructive" aria-label={`Delete ${asset.name}`} onClick={() => setDeletingAsset(asset)}><Trash2 className="mr-2 h-4 w-4" />Delete</Button>}
                     </div>
                   </TableCell>}
                 </TableRow>)}</TableBody>
@@ -103,6 +116,16 @@ export default function Assets() {
       </div>}
 
       {canViewEngineering(user?.role) && <CreateAssetDialog key={editingAsset?.id ?? "new"} asset={editingAsset} open={createOpen} onOpenChange={setCreateOpen} />}
+      <Dialog open={Boolean(deletingAsset)} onOpenChange={(open) => { if (!open && !deleteMutation.isPending) setDeletingAsset(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Delete asset</DialogTitle><DialogDescription>
+            Permanently remove {deletingAsset?.name} from the dashboard and BaSyx repository/registry? Historical telemetry and incident records are retained.
+          </DialogDescription></DialogHeader>
+          <DialogFooter><Button variant="outline" onClick={() => setDeletingAsset(null)} disabled={deleteMutation.isPending}>Cancel</Button>
+            <Button variant="destructive" onClick={() => deletingAsset && deleteMutation.mutate({ id: deletingAsset.id })} disabled={deleteMutation.isPending}>{deleteMutation.isPending ? "Deleting…" : "Delete asset"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

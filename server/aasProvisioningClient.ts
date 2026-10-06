@@ -145,6 +145,31 @@ export async function rollbackAasxImport(result: AasxImportResult) {
   if (!response.ok) throw new Error(`AASX rollback failed (HTTP ${response.status})`);
 }
 
+/** Remove the exact BaSyx resources represented by one persisted AASX asset. */
+export async function removeImportedAasxAsset(asset: {
+  assetId: string;
+  aasxPackageId: string | null;
+  aasSubmodels: Array<Record<string, unknown>>;
+  aasConceptDescriptions: Array<Record<string, unknown>>;
+}) {
+  const baseUrl = getProvisioningUrl();
+  if (!baseUrl) throw new Error("Imported AASX deletion requires the private .NET AAS provisioner");
+  if (!asset.aasxPackageId) throw new Error("Imported AASX package receipt is missing");
+  const response = await fetch(new URL("import", baseUrl), {
+    method: "DELETE",
+    headers: { "content-type": "application/json", "x-aas-provisioning-token": process.env.AAS_PROVISIONING_TOKEN! },
+    body: JSON.stringify({
+      packageId: asset.aasxPackageId,
+      assetIds: [asset.assetId],
+      submodelIds: asset.aasSubmodels.map((item) => item.id).filter((id): id is string => typeof id === "string"),
+      conceptDescriptionIds: asset.aasConceptDescriptions.map((item) => item.id).filter((id): id is string => typeof id === "string"),
+    }),
+    redirect: "error",
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!response.ok) throw new Error(`AASX deletion failed (HTTP ${response.status})`);
+}
+
 export type EdgeConfiguration = {
   schemaVersion: 1;
   gatewayDeviceId: string;

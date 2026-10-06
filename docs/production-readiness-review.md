@@ -1,6 +1,6 @@
 # Production readiness review and evidence
 
-Reviewed 2026-10-06 across `smart-factory-iot`, `smart-factory-iot-backend` and `smart-factory-iot-edge`. The selected target is **Vercel frontend plus one Render container containing all six backend processes**. Existing dashboard accounts/roles remain authoritative; notifications use the in-app inbox and configured Microsoft Graph email. Live DHT11 ingestion was inspected read-only, but no production deployment, physical arm movement or firmware flashing was performed.
+Reviewed 2026-10-07 across `smart-factory-iot`, `smart-factory-iot-backend` and `smart-factory-iot-edge`. The selected target is **Vercel frontend plus one Render container containing all six backend processes**. Existing dashboard accounts/roles remain authoritative; notifications use the in-app inbox and configured Resend email. Live DHT11 ingestion and a commissioned 200 ms WROVER indicator pulse were verified; no production deployment, physical arm movement or firmware flashing was performed.
 
 ## Assessment
 

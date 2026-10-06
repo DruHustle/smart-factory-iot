@@ -320,8 +320,8 @@ export async function deleteDevice(id: number): Promise<boolean> {
     if (connectedAssets.length > 0) {
       throw new Error("This gateway is linked to an AAS asset. Remove the asset connection before deleting the gateway.");
     }
-    await db.delete(devices).where(eq(devices.id, id));
-    return true;
+    const deleted = await db.delete(devices).where(eq(devices.id, id)).returning({ id: devices.id });
+    return deleted.length === 1;
   });
 }
 
@@ -428,6 +428,20 @@ export async function getAssetRecordById(id: number) {
     const [asset] = await db.select().from(assets).where(eq(assets.id, id)).limit(1);
     return asset;
   });
+}
+
+export async function deleteAsset(id: number): Promise<boolean> {
+  return withDb(async (db) => db.transaction(async (tx) => {
+    const [current] = await tx.select({ id: assets.id, isDemo: assets.isDemo }).from(assets)
+      .where(eq(assets.id, id)).limit(1).for("update");
+    if (!current) return false;
+    if (current.isDemo) throw new Error("Demo assets are read-only");
+    await tx.delete(assetDevices).where(eq(assetDevices.assetId, id));
+    await tx.delete(assetLifecycleEvents).where(eq(assetLifecycleEvents.assetId, id));
+    await tx.delete(assetVersions).where(eq(assetVersions.assetId, id));
+    await tx.delete(assets).where(eq(assets.id, id));
+    return true;
+  }));
 }
 
 /** Return the owning dashboard asset for an AAS shell or its submodel ID. */

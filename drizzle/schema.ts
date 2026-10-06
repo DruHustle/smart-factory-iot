@@ -218,7 +218,7 @@ export const alerts = pgTable("alerts", {
 export type Alert = typeof alerts.$inferSelect;
 export type InsertAlert = typeof alerts.$inferInsert;
 
-/** Durable per-user incident inbox and Microsoft Graph delivery queue. */
+/** Durable per-user incident inbox and Resend delivery queue. */
 export const notificationInbox = pgTable("notification_inbox", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
   alertId: integer("alertId").notNull().references(() => alerts.id, { onDelete: "cascade" }),

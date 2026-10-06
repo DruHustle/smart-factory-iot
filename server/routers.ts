@@ -10,7 +10,7 @@ import * as db from "./db";
 import * as pdf from "./pdfExport";
 import { listNotifications, readNotification, retryNotification, notificationConfiguration } from "./notifications";
 import { bundleEnabled, internalService, type AssetCoverage } from "./internalServices";
-import { provisionAas, removeProvisionedAas, updateProvisionedAas, publishEdgeConfiguration, publishAda031Control, publishWroverIndicator } from "./aasProvisioningClient";
+import { provisionAas, removeProvisionedAas, removeImportedAasxAsset, updateProvisionedAas, publishEdgeConfiguration, publishAda031Control, publishWroverIndicator } from "./aasProvisioningClient";
 import { DEMO_ACCOUNTS, demoAccountsEnabled, isDemoAccount } from "../shared/demo-accounts";
 import { edgeTagMappingsSchema } from "../shared/edge-configuration";
 import { answerFactoryQuestion } from "./assistantKnowledge";
@@ -194,7 +194,10 @@ export const appRouter = router({
     // itself is created as an AAS asset and linked to a gateway from its AAS page.
     create: engineerProcedure.input(z.object({ deviceId: z.string().trim().min(3).max(64), name: z.string().trim().min(3).max(255), status: deviceStatusEnum.optional(), location: z.string().trim().max(255).optional(), zone: z.string().trim().max(100).optional() })).mutation(({ input }) => db.createDevice({ ...input, type: "gateway" })),
     update: engineerProcedure.input(z.object({ id: z.number(), name: z.string().optional(), status: deviceStatusEnum.optional() })).mutation(({ input: { id, ...data } }) => db.updateDevice(id, data)),
-    delete: adminProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteDevice(input.id)),
+    delete: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
+      if (!await db.deleteDevice(input.id)) throw new TRPCError({ code: "NOT_FOUND", message: "Device not found" });
+      return { deleted: true };
+    }),
     getStats: viewerProcedure.query(() => db.getDeviceStats()),
     pulseIndicator: engineerProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ input, ctx }) => {
       const device = await db.getDeviceById(input.id);
@@ -358,6 +361,36 @@ export const appRouter = router({
       const updated = await updateAssetRevision(id, expectedVersion, identity, ctx.user.id, changeNote);
       if (!updated) throw new Error("Asset not found");
       return updated;
+    }),
+    delete: adminProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ input }) => {
+      const asset = await db.getAssetRecordById(input.id);
+      if (!asset) throw new TRPCError({ code: "NOT_FOUND", message: "Asset not found" });
+      if (asset.isDemo) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Demo assets are read-only" });
+      const connections = await db.getAssetConnections(input.id);
+      if (asset.aasxImported) {
+        await removeImportedAasxAsset(asset);
+      } else {
+        await removeProvisionedAas({
+          assetId: asset.assetId, name: asset.name, assetType: asset.assetType,
+          manufacturer: asset.manufacturer ?? undefined, model: asset.model ?? undefined,
+          manufacturerStreet: asset.manufacturerStreet ?? "",
+          manufacturerZipcode: asset.manufacturerZipcode ?? "",
+          manufacturerCityTown: asset.manufacturerCityTown ?? "",
+          manufacturerNationalCode: asset.manufacturerNationalCode ?? "",
+          manufacturerArticleNumber: asset.manufacturerArticleNumber ?? undefined,
+          orderCodeOfManufacturer: asset.orderCodeOfManufacturer ?? undefined,
+          serialNumber: asset.serialNumber ?? undefined, ratedValue: asset.ratedValue ?? undefined,
+          ratedUnit: asset.ratedUnit ?? undefined, aasVersion: asset.aasVersion,
+        });
+      }
+      if (!await db.deleteAsset(input.id)) throw new TRPCError({ code: "NOT_FOUND", message: "Asset not found" });
+      const gatewayIds = [...new Set(connections.filter((item) => item.connectionDeviceType === "gateway").map((item) => item.gatewayDeviceId))];
+      const edgeSyncFailures: string[] = [];
+      for (const gatewayDeviceId of gatewayIds) {
+        try { await publishEdgeConfiguration({ schemaVersion: 1, gatewayDeviceId, assets: await db.getGatewayAssetConnections(gatewayDeviceId) }); }
+        catch { edgeSyncFailures.push(gatewayDeviceId); }
+      }
+      return { deleted: true, edgeSyncFailures };
     }),
     restoreVersion: engineerProcedure.input(z.object({
       id: z.number(), sourceVersion: z.number().int().positive(), expectedVersion: z.number().int().positive(),

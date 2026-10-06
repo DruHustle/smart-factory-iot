@@ -34,7 +34,7 @@ flowchart TB
   Identity --> AppDB
   Analytics --> AppDB
   Notification -->|Durable incident inbox| AppDB
-  Notification -->|Application mail credentials| Graph[Microsoft Graph configured sender]
+  Notification -->|Server-side API key| Resend[Resend configured sender]
   Device --> DeviceDB[(Aiven device PostgreSQL)]
   Telemetry --> TelemetryDB[(Aiven telemetry PostgreSQL)]
   API --> Redis[(Redis Cloud TLS)]
