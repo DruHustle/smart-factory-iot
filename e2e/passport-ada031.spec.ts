@@ -90,20 +90,28 @@ test("EUDPP distinguishes a service failure from a missing passport", async ({ p
   await expect(alert.getByRole("button", { name: "Try again" })).toBeVisible();
 });
 
-test("ADA031 controls stay interlocked and publish only to the safe E2E mock", async ({ context, page }) => {
+test("ADA031 controls stay interlocked and publish only to the safe E2E mock", async ({ context, page }, testInfo) => {
   await mockBrowserPrint(context);
   await loginAsAdmin(page);
 
+  // A failed late-stage assertion can leave records behind before Playwright
+  // retries the test. Unique identities keep retries focused on the original
+  // failure instead of colliding with that earlier setup data.
+  const runId = `${Date.now()}-${testInfo.retry}`;
+  const gatewayId = `e2e-ada031-gateway-${runId}`;
+  const gatewayName = `E2E ADA031 Gateway ${runId}`;
+  const assetName = `E2E ADA031 Safe Arm ${runId}`;
+
   await page.getByRole("button", { name: "Devices", exact: true }).click();
   await page.getByRole("button", { name: /register gateway/i }).first().click();
-  await page.getByLabel("Gateway ID").fill("e2e-ada031-gateway-01");
-  await page.getByLabel("Gateway name").fill("E2E ADA031 Gateway");
+  await page.getByLabel("Gateway ID").fill(gatewayId);
+  await page.getByLabel("Gateway name").fill(gatewayName);
   await page.getByRole("button", { name: /register gateway/i }).last().click();
-  await expect(page.getByText("E2E ADA031 Gateway", { exact: true })).toBeVisible();
+  await expect(page.getByText(gatewayName, { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Assets", exact: true }).click();
   await page.getByRole("button", { name: /create asset/i }).click();
-  await page.getByLabel("Asset name").fill("E2E ADA031 Safe Arm");
+  await page.getByLabel("Asset name").fill(assetName);
   await page.getByLabel("Asset type").click();
   await page.getByRole("option", { name: "Robotic arm", exact: true }).click();
   await page.getByLabel("Manufacturer", { exact: true }).fill("Adeept E2E");
@@ -115,15 +123,15 @@ test("ADA031 controls stay interlocked and publish only to the safe E2E mock", a
   await page.getByLabel("Manufacturer article number").fill("ADA031-E2E");
   await page.getByLabel("Manufacturer order code").fill("ADA031-E2E-ORDER");
   await page.getByLabel("Edge gateway").click();
-  await page.getByRole("option", { name: /E2E ADA031 Gateway/ }).click();
+  await page.getByRole("option").filter({ hasText: gatewayName }).click();
   await page.getByLabel("Protocol").click();
   await page.getByRole("option", { name: "ADA031 V4 USB control" }).click();
   await page.getByLabel("Machine endpoint").fill("serial:///dev/serial/by-id/usb-e2e-ada031?baudrate=9600");
   await page.getByRole("button", { name: /register and provision/i }).click();
-  await expect(page.getByText("E2E ADA031 Safe Arm", { exact: true })).toBeVisible();
+  await expect(page.getByText(assetName, { exact: true })).toBeVisible();
 
-  const assetRow = page.getByRole("row").filter({ hasText: "E2E ADA031 Safe Arm" });
-  await assetRow.getByRole("button", { name: "Open AAS for E2E ADA031 Safe Arm" }).click();
+  const assetRow = page.getByRole("row").filter({ hasText: assetName });
+  await assetRow.getByRole("button", { name: `Open AAS for ${assetName}` }).click();
   await expect(page.getByRole("heading", { name: "ADA031 operation control" })).toBeVisible();
 
   const operationCard = page.locator('[data-slot="card"]').filter({ has: page.getByRole("heading", { name: "ADA031 operation control" }) });
@@ -176,7 +184,7 @@ test("ADA031 controls stay interlocked and publish only to the safe E2E mock", a
   const popupPromise = context.waitForEvent("page");
   await page.getByRole("button", { name: "Print EUDPP" }).click();
   const popup = await popupPromise;
-  await expect(popup.getByRole("heading", { level: 1, name: "E2E ADA031 Safe Arm" })).toBeVisible();
+  await expect(popup.getByRole("heading", { level: 1, name: assetName })).toBeVisible();
   await expectPrintCalled(popup);
   await expect(popup.getByLabel("Primary navigation")).toHaveCount(0);
   await expect(popup.getByTestId("passport-qr")).toHaveAttribute("data-qr-value", /#\/passport\/\d+$/);

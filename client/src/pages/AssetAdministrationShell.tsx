@@ -367,10 +367,10 @@ export default function AssetAdministrationShell() {
           <fieldset className="space-y-3" aria-busy={controlAda031.isPending} aria-describedby="ada031-command-note">
             <legend className="sr-only">ADA031 motion commands</legend>
             <div className="grid gap-3 md:grid-cols-2">
-              <Button disabled={!motionReady || controlAda031.isPending} onClick={() => sendArmCommand({ action: "set_profile", profile: "pick_and_place_repeat" })}>Run pick A → B → A repeatedly</Button>
-              <Button disabled={!motionReady || controlAda031.isPending} onClick={() => sendArmCommand({ action: "set_profile", profile: "demonstration_moves" })}>Run pickup / rotate demonstration</Button>
-              <Button variant="outline" disabled={!motionReady || controlAda031.isPending} onClick={() => sendArmCommand({ action: "stop_program" })}><Square className="mr-2 h-4 w-4" />Stop after current pose</Button>
-              <Button variant="destructive" disabled={!motionReady || controlAda031.isPending} onClick={() => sendArmCommand({ action: "neutral" })}><RotateCcw className="mr-2 h-4 w-4" />Neutral: set all servos to 90°</Button>
+              <Button className="h-auto min-w-0 whitespace-normal" disabled={!motionReady || controlAda031.isPending} onClick={() => sendArmCommand({ action: "set_profile", profile: "pick_and_place_repeat" })}>Run pick A → B → A repeatedly</Button>
+              <Button className="h-auto min-w-0 whitespace-normal" disabled={!motionReady || controlAda031.isPending} onClick={() => sendArmCommand({ action: "set_profile", profile: "demonstration_moves" })}>Run pickup / rotate demonstration</Button>
+              <Button className="h-auto min-w-0 whitespace-normal" variant="outline" disabled={!motionReady || controlAda031.isPending} onClick={() => sendArmCommand({ action: "stop_program" })}><Square className="mr-2 h-4 w-4 shrink-0" />Stop after current pose</Button>
+              <Button className="h-auto min-w-0 whitespace-normal" variant="destructive" disabled={!motionReady || controlAda031.isPending} onClick={() => sendArmCommand({ action: "neutral" })}><RotateCcw className="mr-2 h-4 w-4 shrink-0" />Neutral: set all servos to 90°</Button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {([
