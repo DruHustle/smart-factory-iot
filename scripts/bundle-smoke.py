@@ -17,7 +17,16 @@ def http(opener, path, value=None):
     try: response = opener.open(request, timeout=25)
     except urllib.error.HTTPError as error: response = error
     raw = response.read()
-    return response.status, json.loads(raw) if raw else None
+    if not raw:
+        return response.status, None
+    try:
+        payload = json.loads(raw)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        # During container startup an upstream proxy or a process that has not
+        # reached readiness can return a short plain-text/HTML response. Preserve
+        # it for diagnostics and let wait() retry instead of crashing the suite.
+        payload = raw.decode('utf-8', errors='replace')[:4096]
+    return response.status, payload
 def trpc(opener, procedure, value=None, query=False):
     path = '/api/trpc/' + procedure
     if query: path += '?input=' + urllib.parse.quote(json.dumps({'json': value}))
