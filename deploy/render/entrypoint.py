@@ -1,9 +1,32 @@
 """Validate runtime wiring and launch all active backend processes as one user."""
 import os
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import subprocess
 import sys
+from threading import Thread
 from urllib.parse import urlparse, unquote
+
+class StartupHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        body = b'Starting: database migrations are in progress\n'
+        self.send_response(503)
+        self.send_header('Content-Type', 'text/plain; charset=utf-8')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format, *args):
+        return
+
+class StartupServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+
+def start_startup_server(port):
+    server = StartupServer(('0.0.0.0', port), StartupHandler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server, thread
 
 def configure():
     port = int(os.environ.get('PORT', '10000'))
@@ -63,9 +86,15 @@ def migrate_databases():
     subprocess.run(['dotnet', '/services/device/DeviceService.dll'], env=device_env, check=True)
 
 if __name__ == '__main__':
+    startup_server = None
+    startup_thread = None
     try:
-        configure()
+        port = configure()
+        startup_server, startup_thread = start_startup_server(port)
         migrate_databases()
+        startup_server.shutdown()
+        startup_server.server_close()
+        startup_thread.join()
         os.execvp('supervisord', ['supervisord', '-c', '/app/deploy/render/supervisord.conf'])
     except Exception as error:
         print('Bundle startup failed: ' + str(error), file=sys.stderr)
