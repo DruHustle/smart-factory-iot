@@ -1,6 +1,7 @@
 """Validate runtime wiring and launch all active backend processes as one user."""
 import os
 from pathlib import Path
+import subprocess
 import sys
 from urllib.parse import urlparse, unquote
 
@@ -48,9 +49,23 @@ def configure():
     os.environ['ENABLE_DEMO_DATA'] = 'false'
     return port
 
+def migrate_databases():
+    """Apply idempotent migrations before any service begins accepting work."""
+    subprocess.run(['node', 'scripts/migrate-dashboard.mjs'], cwd='/app', check=True)
+    telemetry_env = {**os.environ, 'PostgresConnectionString': os.environ['TELEMETRY_DATABASE_CONNECTION']}
+    subprocess.run(['dotnet', '/services/telemetry/TelemetryService.dll', '--migrate'], env=telemetry_env, check=True)
+    device_env = {
+        **os.environ,
+        'ConnectionStrings__DefaultConnection': os.environ['DEVICE_DATABASE_CONNECTION'],
+        'MIGRATION_ONLY': 'true',
+        'APPLY_DATABASE_MIGRATIONS': 'true',
+    }
+    subprocess.run(['dotnet', '/services/device/DeviceService.dll'], env=device_env, check=True)
+
 if __name__ == '__main__':
     try:
         configure()
+        migrate_databases()
         os.execvp('supervisord', ['supervisord', '-c', '/app/deploy/render/supervisord.conf'])
     except Exception as error:
         print('Bundle startup failed: ' + str(error), file=sys.stderr)
