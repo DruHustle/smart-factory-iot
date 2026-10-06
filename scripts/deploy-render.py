@@ -14,10 +14,24 @@ def main():
     endpoint = 'https://api.render.com/v1/services/' + service + '/deploys'
     def api(url, body=None):
         request = urllib.request.Request(url, data=json.dumps(body).encode() if body else None,
-          headers={'Authorization': 'Bearer ' + os.environ['RENDER_API_KEY'], 'Content-Type': 'application/json'})
+          headers={
+              'Accept': 'application/json',
+              'Authorization': 'Bearer ' + os.environ['RENDER_API_KEY'],
+              'Content-Type': 'application/json',
+          })
         try:
             with urllib.request.urlopen(request, timeout=30) as response: return json.load(response)
-        except urllib.error.HTTPError as error: raise RuntimeError('Render API HTTP ' + str(error.code)) from None
+        except urllib.error.HTTPError as error:
+            # Render returns the actionable validation reason in the response
+            # body. Keep it visible in CI while limiting untrusted output size.
+            detail = error.read(4096).decode('utf-8', errors='replace').strip()
+            try:
+                payload = json.loads(detail)
+                detail = payload.get('message') or payload.get('error') or detail
+            except (json.JSONDecodeError, AttributeError):
+                pass
+            suffix = ': ' + str(detail).replace('\r', ' ').replace('\n', ' ') if detail else ''
+            raise RuntimeError('Render API HTTP ' + str(error.code) + suffix) from None
         except Exception: raise RuntimeError('Render API request failed') from None
     deploy = api(endpoint, {'imageUrl': image})
     identifier = deploy.get('id')
