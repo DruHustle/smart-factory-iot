@@ -142,6 +142,6 @@ See [authorization and AAS](authorization-and-aas.md) for the role matrix, templ
 
 ## Identity, coverage and incident notifications
 
-In Render mode, `auth.me` delegates to the private IdentityService with the authenticated dashboard account ID and a separate service token; the service reads the current role from PostgreSQL. It never returns an Entra/Graph access token. `analytics.getCoverage` delegates a bounded selected-asset/time range to AnalyticsService, which aggregates indexed stored samples without treating missing metrics as zero.
+In Render mode, `auth.me` delegates to the private IdentityService with the authenticated dashboard account ID and a separate service token; the service reads the current role from PostgreSQL. It never returns an email-provider or AAS access token. `analytics.getCoverage` delegates a bounded selected-asset/time range to AnalyticsService, which aggregates indexed stored samples without treating missing metrics as zero.
 
 Alert writes atomically create the per-user inbox via the database trigger. `notifications.list` and `notifications.markRead` are authenticated owner-only operations. `notifications.retryEmail` requires an engineer/admin owner and an eligible failed/unconfigured/unauthorized job. Reading a notification is independent of incident acknowledgment. The UI links notifications to event details by ID. NotificationService delivers the durable queue through the configured Resend sender and checks current account role and recipient domain at delivery time.

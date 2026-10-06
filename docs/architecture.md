@@ -23,7 +23,7 @@ flowchart TB
     Telemetry[TelemetryService: durable intake and outbox]
     Identity[IdentityService: current account roles]
     Analytics[AnalyticsService: sample coverage and gaps]
-    Notification[NotificationService: Graph delivery worker]
+    Notification[NotificationService: Resend delivery worker]
     API -->|Private service token| Device
     API -->|Account delegation| Identity
     API -->|Asset range query| Analytics
