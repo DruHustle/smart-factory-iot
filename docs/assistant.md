@@ -4,7 +4,7 @@ The Assistant combines approved application guides with a small, current snapsho
 
 ## Provider setup
 
-Provider settings belong in the backend environment (`.env` for local Compose or the deployment platform's secret settings). Never add provider credentials to `VITE_*` variables, frontend code, source control, screenshots, or support logs.
+Provider settings belong in the backend environment (`.env.local` for local Compose or the deployment platform's secret settings). Never add provider credentials to `VITE_*` variables, frontend code, source control, screenshots, or support logs.
 
 ```dotenv
 ASSISTANT_PROVIDER=openai_compatible
@@ -27,13 +27,13 @@ ASSISTANT_GROQ_API_KEY=
 
 The implementation accepts the older `ASSISTANT_GROK_*` spelling for migration, but new configurations should use `ASSISTANT_GROQ_*`. The Groq model IDs previously used in early examples have been retired or are not available on current developer tiers; the defaults here use currently documented Groq production models. Confirm model access in the provider console for the account and region in use.
 
-For local Docker, set values in the root `.env`, then recreate the dashboard container so Compose injects them:
+For local Docker, set values in the root `.env.local`, then recreate the dashboard container so Compose injects them:
 
 ```bash
-docker compose up -d --build --force-recreate dashboard
+docker compose --env-file .env.local up -d --build --force-recreate dashboard
 ```
 
-For production, configure the same variables as encrypted backend secrets in the hosting platform, then redeploy. Do not commit `.env` or place keys in public frontend build arguments.
+For production, configure the same variables as encrypted backend secrets in the hosting platform, then redeploy. Do not commit `.env.local` or place keys in public frontend build arguments.
 
 ## Data sent to a provider
 

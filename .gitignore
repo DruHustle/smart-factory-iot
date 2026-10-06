@@ -19,7 +19,8 @@ dist/
 # Environment variables
 .env
 .env.*
-!.env.example
+!.env.local.example
+!.env.prod.example
 
 # Logs
 npm-debug.log*

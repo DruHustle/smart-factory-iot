@@ -1,4 +1,4 @@
-# Disposable single-container deployment acceptance test. No .env or live services.
+# Disposable single-container deployment acceptance test. No .env.local or live services.
 services:
   database:
     image: postgres:16-alpine

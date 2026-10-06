@@ -12,7 +12,7 @@ type CookieCall = {
 };
 
 // Database-backed integration tests only run against an explicitly supplied test DB.
-// Never fall back to DATABASE_URL from .env (which may point at a shared environment).
+// Never fall back to DATABASE_URL from .env.local (which may point at a shared environment).
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 if (testDatabaseUrl) process.env.DATABASE_URL = testDatabaseUrl;
 const databaseDescribe = testDatabaseUrl ? describe : describe.skip;

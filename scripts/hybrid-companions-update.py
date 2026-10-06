@@ -518,7 +518,7 @@ if "MqttBrokerHost: rabbitmq" not in compose_text:
     compose_text = compose_text.replace("depends_on: { postgres: { condition: service_healthy } }\n    ports: [\"127.0.0.1:5001:80\"]", "depends_on: { postgres: { condition: service_healthy }, rabbitmq: { condition: service_healthy } }\n    ports: [\"127.0.0.1:5001:80\"]", 1)
 compose_path.write_text(compose_text)
 
-env_path = backend / ".env.example"
+env_path = backend / ".env.local.example"
 env_text = env_path.read_text()
 if "AASX_FILE_SERVER_URL=" not in env_text:
     env_text += "AASX_FILE_SERVER_URL=\nEDGE_SITE_ID=factory-a\nEDGE_LINE_ID=line-1\n"

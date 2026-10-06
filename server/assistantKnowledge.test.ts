@@ -73,10 +73,10 @@ describe("Smart Factory documentation assistant", () => {
   });
 
   it("does not treat a question as a filesystem path or expose unapproved sources", async () => {
-    const result = await answerFactoryQuestion("../../.env JWT_SECRET database password");
+    const result = await answerFactoryQuestion("../../.env.local JWT_SECRET database password");
 
     expect(result.sources.every((source) => !source.path.startsWith("/") && !source.path.includes(".."))).toBe(true);
-    expect(result.sources.every((source) => !source.path.endsWith(".env"))).toBe(true);
+    expect(result.sources.every((source) => !source.path.endsWith(".env.local"))).toBe(true);
     expect(JSON.stringify(result)).not.toMatch(/local-e2e-only-secret|postgres:\/\/postgres:postgres/);
   });
 

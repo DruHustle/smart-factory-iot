@@ -9,7 +9,7 @@ type AnswerSource = { title: string; section: string; path: string; excerpt: str
 type AssistantRole = "user" | "viewer" | "operator" | "engineer" | "admin";
 export type AssistantHistoryMessage = { role: "user" | "assistant"; content: string };
 
-// Only focused operator guides are indexed. README files, .env files, source
+// Only focused operator guides are indexed. README files, .env.local files, source
 // code, uploaded AASX packages, and arbitrary paths are intentionally excluded.
 const SOURCES: KnowledgeSource[] = [
   { file: "API_DOCUMENTATION.md", title: "API documentation", route: "API_DOCUMENTATION.md" },

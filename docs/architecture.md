@@ -89,7 +89,7 @@ The ADA031 V4 controller has bounded jog, calibrated repeat, demonstration, oper
 - Keep CloudAMQP MQTT (port 8883/TLS) and AMQPS credentials on backend services and the Pi gateway only. The WROVER receives distinct local Mosquitto credentials and the Pi broker CA.
 - Store `JWT_SECRET`, `INGESTION_API_TOKEN`, AAS OAuth client secret, database credentials, broker credentials, and machine protocol credentials in a secret manager or protected runtime variables.
 - Keep the AAS Environment and its database on a private network. Expose `/api/aas/*` only through the Node role-checking gateway.
-- The E2E script uses a disposable PostgreSQL container and does not connect to the developer's `.env` database.
+- The E2E script uses a disposable PostgreSQL container and does not connect to the developer's `.env.local` database.
 
 The dashboard's core HTTP/API path, PostgreSQL sessions/roles, AAS revision checks, and login throttling are shared across replicas. WebSocket broadcasts use Redis Pub/Sub and authenticated upgrade checks, so AAS change notifications reach clients connected to any dashboard replica. Notifications and email retries are durable in PostgreSQL. Production grouping uses persisted asset metadata; the former process-local device-group API has been removed. Set `TRUST_PROXY` to known ingress addresses only; its default is disabled.
 

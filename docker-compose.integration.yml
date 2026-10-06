@@ -1,4 +1,4 @@
-# Disposable cross-repository integration stack. Does not read repository .env files.
+# Disposable cross-repository integration stack. Does not read repository .env.local files.
 services:
   database:
     image: postgres:16-alpine

@@ -534,9 +534,9 @@ public sealed class AasProvisioningTests
 
 compose = backend / "docker-compose.yml"
 compose_text = compose.read_text()
-compose_text = compose_text.replace('''      JWT_SECRET: ${JWT_SECRET:?Set shared dashboard JWT secret in .env}
-      ConnectionStrings__DefaultConnection:'''.replace("\n+", "\n"), '''      JWT_SECRET: ${JWT_SECRET:?Set shared dashboard JWT secret in .env}
-      AAS_PROVISIONING_TOKEN: ${AAS_PROVISIONING_TOKEN:?Set private provisioner token in .env}
+compose_text = compose_text.replace('''      JWT_SECRET: ${JWT_SECRET:?Set shared dashboard JWT secret in .env.local}
+      ConnectionStrings__DefaultConnection:'''.replace("\n+", "\n"), '''      JWT_SECRET: ${JWT_SECRET:?Set shared dashboard JWT secret in .env.local}
+      AAS_PROVISIONING_TOKEN: ${AAS_PROVISIONING_TOKEN:?Set private provisioner token in .env.local}
       AAS_REPOSITORY_URL: ${AAS_REPOSITORY_URL:-}
       AAS_REGISTRY_URL: ${AAS_REGISTRY_URL:-}
       AAS_OIDC_TOKEN_URL: ${AAS_OIDC_TOKEN_URL:-}
@@ -544,10 +544,10 @@ compose_text = compose_text.replace('''      JWT_SECRET: ${JWT_SECRET:?Set share
       AAS_OIDC_CLIENT_SECRET: ${AAS_OIDC_CLIENT_SECRET:-}
       ConnectionStrings__DefaultConnection:'''.replace("\n+", "\n"))
 if "AAS_PROVISIONING_TOKEN:" not in compose_text:
-    compose_text = compose_text.replace("      JWT_SECRET: ${JWT_SECRET:?Set shared dashboard JWT secret in .env}\n", "      JWT_SECRET: ${JWT_SECRET:?Set shared dashboard JWT secret in .env}\n      AAS_PROVISIONING_TOKEN: ${AAS_PROVISIONING_TOKEN:?Set private provisioner token in .env}\n      AAS_REPOSITORY_URL: ${AAS_REPOSITORY_URL:-}\n      AAS_REGISTRY_URL: ${AAS_REGISTRY_URL:-}\n      AAS_OIDC_TOKEN_URL: ${AAS_OIDC_TOKEN_URL:-}\n      AAS_OIDC_CLIENT_ID: ${AAS_OIDC_CLIENT_ID:-}\n      AAS_OIDC_CLIENT_SECRET: ${AAS_OIDC_CLIENT_SECRET:-}\n")
+    compose_text = compose_text.replace("      JWT_SECRET: ${JWT_SECRET:?Set shared dashboard JWT secret in .env.local}\n", "      JWT_SECRET: ${JWT_SECRET:?Set shared dashboard JWT secret in .env.local}\n      AAS_PROVISIONING_TOKEN: ${AAS_PROVISIONING_TOKEN:?Set private provisioner token in .env.local}\n      AAS_REPOSITORY_URL: ${AAS_REPOSITORY_URL:-}\n      AAS_REGISTRY_URL: ${AAS_REGISTRY_URL:-}\n      AAS_OIDC_TOKEN_URL: ${AAS_OIDC_TOKEN_URL:-}\n      AAS_OIDC_CLIENT_ID: ${AAS_OIDC_CLIENT_ID:-}\n      AAS_OIDC_CLIENT_SECRET: ${AAS_OIDC_CLIENT_SECRET:-}\n")
 compose.write_text(compose_text)
 
-env_example = backend / ".env.example"
+env_example = backend / ".env.local.example"
 env_text = env_example.read_text()
 if "AAS_PROVISIONING_TOKEN=" not in env_text:
     env_text += "\n# Shared only between the dashboard API and private DeviceService.\nAAS_PROVISIONING_TOKEN=CHANGE_ME_SEPARATE_32_BYTE_PROVISIONING_SECRET\nAAS_REPOSITORY_URL=\nAAS_REGISTRY_URL=\nAAS_OIDC_TOKEN_URL=\nAAS_OIDC_CLIENT_ID=\nAAS_OIDC_CLIENT_SECRET=\n"

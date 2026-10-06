@@ -53,7 +53,7 @@ function providerConfig(name: AssistantProviderName): ProviderConfig {
 
   return {
     name,
-    // GROK aliases remain accepted for existing local .env files. New installs
+    // GROK aliases remain accepted for existing local .env.local files. New installs
     // should use the correctly named GROQ variables below.
     baseUrl: firstSetting("ASSISTANT_GROQ_BASE_URL", "ASSISTANT_GROK_AI_BASE_URL") || DEFAULT_GROQ_BASE_URL,
     apiKey: firstSetting("ASSISTANT_GROQ_API_KEY", "ASSISTANT_GROK_AI_API_KEY", "ASSISTANT_GROK_API_KEY"),
