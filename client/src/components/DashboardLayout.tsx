@@ -332,7 +332,7 @@ function DashboardLayoutContent({
         />
       </div>
 
-      <SidebarInset id="dashboard-main" tabIndex={-1} className="min-w-0 bg-background">
+      <SidebarInset id="dashboard-main" tabIndex={-1} className="min-w-0 max-w-full overflow-x-clip bg-background">
         {isMobile && (
           <div className="flex border-b border-border h-14 items-center justify-between bg-background px-2 sticky top-0 z-40">
             <div className="flex items-center gap-2">
