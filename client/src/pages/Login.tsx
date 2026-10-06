@@ -6,7 +6,7 @@
  */
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Factory, Lock, Mail, Eye, EyeOff } from "lucide-react";
@@ -14,7 +14,7 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
-import { DEMO_ACCOUNTS } from "../../../shared/demo-accounts";
+import { trpc } from "@/lib/trpc";
 
 export default function Login() {
   const { login } = useAuth();
@@ -23,6 +23,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { data: demoAccounts = [] } = trpc.auth.demoAccounts.useQuery();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,12 +51,12 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[url('/images/industrial-blur-bg.jpg')] bg-cover bg-center relative">
+    <main className="relative flex min-h-screen items-center justify-center bg-[url('/images/industrial-blur-bg.webp')] bg-cover bg-center p-4 sm:p-6">
       {/* Dark Overlay */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
       {/* Login Card */}
-      <Card className="w-full max-w-md glass-panel border-white/10 relative z-10 animate-in fade-in zoom-in duration-500">
+      <Card className="glass-panel relative z-10 w-full max-w-md animate-in border-white/10 fade-in zoom-in duration-500">
         <CardHeader className="space-y-1 text-center">
           {/* Logo */}
           <div className="flex justify-center mb-4">
@@ -65,9 +66,9 @@ export default function Login() {
           </div>
 
           {/* Title */}
-          <CardTitle className="text-2xl font-bold tracking-wide">
+          <h1 className="text-2xl font-bold tracking-wide">
             Smart Factory IoT
-          </CardTitle>
+          </h1>
 
           {/* Subtitle */}
           <CardDescription className="text-muted-foreground">
@@ -88,6 +89,7 @@ export default function Login() {
                 <Input
                   id="email"
                   type="email"
+                  autoComplete="email"
                   placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -116,6 +118,7 @@ export default function Login() {
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -124,6 +127,8 @@ export default function Login() {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
@@ -157,14 +162,14 @@ export default function Login() {
           </div>
 
           {/* Demo Accounts Section */}
-          <div className="space-y-3">
+          {demoAccounts.length > 0 && <div className="space-y-3">
             <p className="text-xs text-center text-muted-foreground">
               Demo Accounts (click to fill):
             </p>
             <div className="flex flex-wrap gap-2 justify-center">
-              {DEMO_ACCOUNTS.map((account, index) => (
+              {demoAccounts.map((account) => (
                 <Button
-                  key={index}
+                  key={account.role}
                   variant="outline"
                   size="sm"
                   onClick={() => fillDemoCredentials(account.email, account.password)}
@@ -175,7 +180,7 @@ export default function Login() {
                 </Button>
               ))}
             </div>
-          </div>
+          </div>}
 
           {/* Footer */}
           <div className="mt-6 text-center text-xs text-muted-foreground space-y-1">
@@ -184,6 +189,6 @@ export default function Login() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

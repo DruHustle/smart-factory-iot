@@ -5,6 +5,12 @@ node_modules/
 
 # Testing
 coverage/
+playwright-report/
+test-results/
+__pycache__/
+.pio/
+container-audit.json
+*.pyc
 
 # Production
 build/

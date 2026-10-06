@@ -1,17 +1,4 @@
-# ========================================
-# Smart Factory IoT Frontend - CI/CD Pipeline (Vercel)
-# ========================================
-# This workflow automates the following:
-# 1. Continuous Integration (CI):
-#    - Restores dependencies
-#    - Runs type checks and tests
-#    - Runs E2E smoke tests
-#    - Builds the frontend bundle
-# 2. Continuous Deployment (CD):
-#    - Deploys production build to Vercel on main branch pushes
-# ========================================
-
-name: CI/CD Pipeline
+name: Dashboard quality checks
 
 on:
   push:
@@ -23,13 +10,15 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: dashboard-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  # ----------------------------------------
-  # Job 1: Build and Test
-  # ----------------------------------------
   build-and-test:
     name: Build and Test
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:16
@@ -47,15 +36,16 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { persist-credentials: false }
 
       - name: Setup PNPM
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
         with:
-          version: 10
+          version: 10.34.5
 
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: pnpm
@@ -75,6 +65,7 @@ jobs:
       - name: Run Unit Tests
         env:
           DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/smart_factory_iot
+          TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/smart_factory_iot
           DATABASE_SSL_MODE: disable
         run: pnpm test
 
@@ -82,10 +73,16 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Run E2E Smoke Tests
+        env: { E2E_PORT: '3100' }
         run: pnpm e2e
 
       - name: Build Frontend
         run: pnpm build
+
+      - name: Validate documentation and deployment configuration
+        run: |
+          pnpm docs:check
+          pnpm deployment:check
 
       - name: Verify Build Output
         run: |
@@ -100,64 +97,6 @@ jobs:
           echo "Build verification passed"
           ls -lah dist/public/
 
-  # ----------------------------------------
-  # Job 2: Deploy to Vercel
-  # ----------------------------------------
-  deploy-vercel:
-    name: Deploy to Vercel
-    needs: build-and-test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    environment: production
-    env:
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup PNPM
-        uses: pnpm/action-setup@v3
-        with:
-          version: 10
-
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check Vercel credentials
-        id: vercel
-        run: |
-          if [ -n "${{ secrets.VERCEL_TOKEN }}" ] && [ -n "${{ secrets.VERCEL_ORG_ID }}" ] && [ -n "${{ secrets.VERCEL_PROJECT_ID }}" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "Vercel secrets are missing. Skipping deployment."
-          fi
-
-      - name: Pull Vercel Environment Information
-        if: steps.vercel.outputs.enabled == 'true'
-        run: pnpm dlx vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build Vercel Artifacts
-        if: steps.vercel.outputs.enabled == 'true'
-        run: pnpm dlx vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy to Vercel (Production)
-        id: deployment
-        if: steps.vercel.outputs.enabled == 'true'
-        run: |
-          DEPLOYMENT_URL=$(pnpm dlx vercel deploy --prebuilt --prod --yes --token=${{ secrets.VERCEL_TOKEN }})
-          echo "url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
-          echo "Deployed to $DEPLOYMENT_URL"
-
-      - name: Deployment Summary
-        if: steps.vercel.outputs.enabled == 'true'
-        run: |
-          echo "Production URL: ${{ steps.deployment.outputs.url }}"
+      - name: Dependency security audit
+        run: pnpm audit --audit-level=moderate

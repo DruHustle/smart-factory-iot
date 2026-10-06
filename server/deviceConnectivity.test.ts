@@ -1,0 +1,25 @@
+import { describe, expect, it } from "vitest";
+import type { Device } from "../drizzle/schema";
+import { DEVICE_OFFLINE_AFTER_MS, deviceWithCurrentStatus } from "./deviceConnectivity";
+
+const now = Date.UTC(2026, 9, 5, 10);
+const gateway = (status: Device["status"], lastSeen: Date | null, isDemo = false) =>
+  ({ status, lastSeen, isDemo, type: "gateway" }) as Device;
+
+describe("gateway connectivity", () => {
+  it("uses recent reports for online status", () => {
+    expect(deviceWithCurrentStatus(gateway("online", new Date(now - DEVICE_OFFLINE_AFTER_MS)), now).status).toBe("online");
+    expect(deviceWithCurrentStatus(gateway("online", new Date(now - DEVICE_OFFLINE_AFTER_MS - 1)), now).status).toBe("offline");
+  });
+
+  it("does not show never-seen or future-dated gateways as online", () => {
+    expect(deviceWithCurrentStatus(gateway("online", null), now).status).toBe("offline");
+    expect(deviceWithCurrentStatus(gateway("online", new Date(now + 1)), now).status).toBe("offline");
+  });
+
+  it("preserves operator fault and maintenance states and explicit demo fixtures", () => {
+    expect(deviceWithCurrentStatus(gateway("error", null), now).status).toBe("error");
+    expect(deviceWithCurrentStatus(gateway("maintenance", null), now).status).toBe("maintenance");
+    expect(deviceWithCurrentStatus(gateway("online", null, true), now).status).toBe("online");
+  });
+});

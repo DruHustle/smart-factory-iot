@@ -8,6 +8,104 @@
       "when": 1771313890066,
       "tag": "0000_awesome_mindworm",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791045224033,
+      "tag": "0001_tired_kronos",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791050510341,
+      "tag": "0002_huge_the_hunter",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791050792460,
+      "tag": "0003_faithful_hydra",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791052537250,
+      "tag": "0004_lonely_bromley",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791061150236,
+      "tag": "0005_aasx_import_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791064308509,
+      "tag": "0006_asset_version_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791065147387,
+      "tag": "0007_shared_login_rate_limits",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791084400486,
+      "tag": "0008_asset_telemetry_attribution",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791087211706,
+      "tag": "0009_organic_quasimodo",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791113636693,
+      "tag": "0010_alert_incident_tracking",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791113677523,
+      "tag": "0011_alert_query_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791157163665,
+      "tag": "0012_telemetry_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791167117170,
+      "tag": "0013_incident_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791168106093,
+      "tag": "0014_account_email_identity",
+      "breakpoints": true
     }
   ]
 }

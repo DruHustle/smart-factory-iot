@@ -5,11 +5,15 @@
  * Run this after database setup to enable demo account login.
  */
 
-import { getDb, createUser, getUserByEmail } from "./db";
+import { getDb, createUser, getUserByEmail, updateDemoAccount } from "./db";
 import { sdk } from "./_core/sdk";
-import { DEMO_ACCOUNTS } from "../shared/demo-accounts";
+import { DEMO_ACCOUNTS, demoAccountsEnabled } from "../shared/demo-accounts";
 
 export async function initializeDemoAccounts() {
+  if (!demoAccountsEnabled()) {
+    console.warn("[Demo Accounts] Disabled outside explicitly enabled non-production environments");
+    return;
+  }
   const db = await getDb();
   if (!db) {
     console.warn("[Demo Accounts] Database not available, skipping initialization");
@@ -23,13 +27,12 @@ export async function initializeDemoAccounts() {
     try {
       // Check if user already exists
       const existing = await getUserByEmail(account.email);
+      const hashedPassword = await sdk.hashPassword(account.password);
       if (existing) {
-        console.log(`[Demo Accounts] Account already exists: ${account.email}`);
+        await updateDemoAccount(existing.id, hashedPassword, account.role);
+        console.log(`[Demo Accounts] Refreshed reserved development account: ${account.email}`);
         continue;
       }
-
-      // Hash password
-      const hashedPassword = await sdk.hashPassword(account.password);
 
       // Create user
       await createUser({
@@ -37,7 +40,7 @@ export async function initializeDemoAccounts() {
         password: hashedPassword,
         name: account.label,
         openId: `demo-${index}`,
-        role: "user",
+        role: account.role,
       });
 
       console.log(`[Demo Accounts] Created account: ${account.email}`);
@@ -47,17 +50,4 @@ export async function initializeDemoAccounts() {
   }
 
   console.log("[Demo Accounts] Initialization complete");
-}
-
-// Run if called directly
-if (require.main === module) {
-  initializeDemoAccounts()
-    .then(() => {
-      console.log("[Demo Accounts] Done");
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error("[Demo Accounts] Error:", error);
-      process.exit(1);
-    });
 }

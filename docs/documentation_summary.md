@@ -1,25 +1,14 @@
-# Smart Factory IoT Documentation Summary
+# Documentation Summary
 
-## System Architecture
-- **Frontend**: React (Vite) dashboard, real-time updates via SignalR/WebSockets.
-- **Backend**: .NET Core Web API, DDD (Domain-Driven Design) architecture.
-- **IoT Layer**: Azure IoT Hub for device connectivity (MQTT/AMQP).
-- **Data Layer**: Aiven MySQL for persistent storage, Azure Redis Cache for performance.
-- **Service Layer**: Azure Logic Apps for notifications, Azure Functions for async tasks.
-- **Infrastructure**: Docker, Kubernetes (AKS), Portainer.
+The README and focused guides are the source of truth for the current three-repository system.
 
-## Database Schema
-- **Users**: Authentication via Microsoft Entra ID.
-- **Devices**: IoT device registration and metadata.
-- **Sensor Readings**: Time-series data (temp, humidity, pressure, vibration, power, rpm).
-- **Alerts**: Triggered by threshold violations.
-- **Alert Thresholds**: Configuration for alert triggers.
-- **OTA Versions & Deployments**: Firmware update management.
+- Application setup and verification: [README](../README.md)
+- Complete local stack and production Vercel/Render release: [deployment guide](../RENDER_DEPLOYMENT.md)
+- Roles, AAS API, and template versions: [authorization and AAS](authorization-and-aas.md)
+- AASX imports, parser compatibility, and gateway synchronization: [AASX and edge configuration](AASX-and-Edge-Configuration.md)
+- Current boundaries: [architecture](architecture.md)
+- Request paths: [API flows](api-flows.md)
+- PostgreSQL schema and migrations: [database schema](database-schema.md)
+- AutomationML boundary: [integration notes](automationml-integration.md)
 
-## API Flows
-- **Authentication**: OAuth 2.0 with Microsoft Entra ID.
-- **Real-time Monitoring**: Telemetry -> IoT Hub -> .NET Backend -> SignalR -> Dashboard.
-- **Alert Management**: Threshold check -> Alert creation -> Logic Apps -> User notification.
-- **Device Management**: CRUD operations with Redis caching.
-- **OTA Updates**: Firmware deployment via IoT Hub direct methods.
-- **Analytics**: OEE calculations and reporting.
+Edit these Markdown sources and regenerate PDFs with pnpm docs:pdf.

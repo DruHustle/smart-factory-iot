@@ -115,6 +115,12 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rounding" 1;
+    min-width: 320px;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    @apply bg-primary/30 text-foreground;
   }
   
   button:not(:disabled),
@@ -153,6 +159,40 @@
   /* Smooth transitions */
   input, textarea, select {
     @apply transition-colors duration-200;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  html,
+  body,
+  #root {
+    min-width: 0;
+    background: white !important;
+    color: black !important;
+  }
+
+  .eudpp-page {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 }
 

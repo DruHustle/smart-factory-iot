@@ -1,61 +1,171 @@
 import { COOKIE_NAME } from "@shared/const";
+import { TRPCError } from "@trpc/server";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { sdk } from "./_core/sdk";
-import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { publicProcedure, viewerProcedure, operatorProcedure, engineerProcedure, adminProcedure, router } from "./_core/trpc";
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 import * as db from "./db";
-import * as mock from "./mockData";
 import * as pdf from "./pdfExport";
-import { notificationService } from "./notifications";
-import { deviceGroupingService, GroupType } from "./deviceGrouping";
+import { listNotifications, readNotification, retryNotification, notificationConfiguration } from "./notifications";
+import { bundleEnabled, internalService, type AssetCoverage } from "./internalServices";
+import { provisionAas, removeProvisionedAas, updateProvisionedAas, publishEdgeConfiguration, publishAda031Control, publishWroverIndicator } from "./aasProvisioningClient";
+import { DEMO_ACCOUNTS, demoAccountsEnabled, isDemoAccount } from "../shared/demo-accounts";
+import { edgeTagMappingsSchema } from "../shared/edge-configuration";
+import { answerFactoryQuestion } from "./assistantKnowledge";
 
 const deviceTypeEnum = z.enum(["sensor", "actuator", "controller", "gateway"]);
 const deviceStatusEnum = z.enum(["online", "offline", "maintenance", "error"]);
 const alertSeverityEnum = z.enum(["info", "warning", "critical"]);
-const deploymentStatusEnum = z.enum(["pending", "downloading", "installing", "completed", "failed", "rolled_back"]);
+const otaUnavailableMessage = "OTA delivery is disabled: no verified firmware release service and device update agent are connected. No update request was queued.";
 const metricEnum = z.enum(["temperature", "humidity", "vibration", "power", "pressure", "rpm"]);
+const assetLifecycleStageEnum = z.enum(["planned", "engineered", "commissioned", "operational", "maintenance", "decommissioned"]);
+const telemetryRangeInput = z.object({
+  startTime: z.number().int().positive(),
+  endTime: z.number().int().positive().max(8_640_000_000_000_000),
+  intervalMs: z.number().int().min(60_000).max(86_400_000).optional(),
+}).refine((input) => input.endTime > input.startTime, "End time must be after start time")
+  .refine((input) => input.endTime - input.startTime <= 93 * 86_400_000, "Select a time range of 93 days or fewer");
+const assetTelemetryInput = telemetryRangeInput.safeExtend({ assetIds: z.array(z.string().min(3).max(128)).max(1000) });
+const passwordInput = z.string().min(1).max(256).refine(
+  (value) => Buffer.byteLength(value, "utf8") <= 72,
+  "Password must be 72 UTF-8 bytes or fewer",
+);
+const newPasswordInput = passwordInput.refine(
+  (value) => value.length >= 12,
+  "New passwords must contain at least 12 characters",
+);
+const assetIdentityInput = z.object({
+  name: z.string().trim().min(2).max(255),
+  assetType: z.enum(["compressor", "transformer", "pump", "motor", "wind_turbine", "robotic_arm", "other"]),
+  manufacturer: z.string().trim().min(1).max(255),
+  model: z.string().trim().min(1).max(255),
+  manufacturerStreet: z.string().trim().min(1).max(255),
+  manufacturerZipcode: z.string().trim().min(1).max(32),
+  manufacturerCityTown: z.string().trim().min(1).max(255),
+  manufacturerNationalCode: z.string().trim().regex(/^[A-Za-z]{2}$/).transform((value) => value.toUpperCase()),
+  manufacturerArticleNumber: z.string().trim().min(1).max(128),
+  orderCodeOfManufacturer: z.string().trim().min(1).max(128),
+  serialNumber: z.string().trim().max(128).optional(),
+  ratedValue: z.string().trim().max(80).optional(),
+  ratedUnit: z.string().trim().max(32).optional(),
+  location: z.string().trim().max(255).optional(),
+  zone: z.string().trim().max(100).optional(),
+});
+
+function requiredAasFields(asset: db.Asset) {
+  return [
+    ["manufacturer", asset.manufacturer],
+    ["product designation", asset.model],
+    ["manufacturer street", asset.manufacturerStreet],
+    ["manufacturer postal code", asset.manufacturerZipcode],
+    ["manufacturer city", asset.manufacturerCityTown],
+    ["manufacturer country code", asset.manufacturerNationalCode],
+    ["manufacturer article number", asset.manufacturerArticleNumber],
+    ["manufacturer order code", asset.orderCodeOfManufacturer],
+  ].filter(([, value]) => typeof value !== "string" || value.trim() === "").map(([name]) => name as string);
+}
+
+async function updateAssetRevision(
+  id: number,
+  expectedVersion: number,
+  identity: z.infer<typeof assetIdentityInput>,
+  changedBy: number,
+  changeNote: string,
+) {
+  try {
+    return await db.updateAsset(id, expectedVersion, identity, changedBy, changeNote, async (assetId, nextVersion, currentVersion) =>
+      updateProvisionedAas({
+        assetId,
+        ...identity,
+        aasVersion: nextVersion,
+        expectedAasVersion: currentVersion,
+      }),
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("version conflict")) {
+      throw new TRPCError({ code: "CONFLICT", message: error.message });
+    }
+    throw error;
+  }
+}
+
+function publicUser(user: db.User | null | undefined) {
+  if (!user) return null;
+  const { password: _password, ...safeUser } = user;
+  return safeUser;
+}
+
+async function runIncidentMutation<T>(action: () => Promise<T | undefined>) {
+  try {
+    const result = await action();
+    if (!result) throw new TRPCError({ code: "NOT_FOUND", message: "Alert not found" });
+    return result;
+  } catch (error) {
+    if (error instanceof TRPCError) throw error;
+    const message = error instanceof Error ? error.message : "Incident update failed";
+    if (message.startsWith("Failed query:")) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Incident update could not be saved. Try again shortly." });
+    const code = message.startsWith("Only ") ? "FORBIDDEN" : message.startsWith("Resolved") || message.startsWith("Alert is already") ? "BAD_REQUEST" : "PRECONDITION_FAILED";
+    throw new TRPCError({ code, message });
+  }
+}
 
 const thresholdInputSchema = z.object({
-  deviceId: z.number(),
+  deviceId: z.number().int().positive(),
   metric: metricEnum,
   minValue: z.number().nullable().optional(),
   maxValue: z.number().nullable().optional(),
   warningMin: z.number().nullable().optional(),
   warningMax: z.number().nullable().optional(),
   enabled: z.boolean().optional(),
+}).superRefine((input, context) => {
+  const ordered = [input.minValue, input.warningMin, input.warningMax, input.maxValue]
+    .filter((value): value is number => value !== null && value !== undefined);
+  if (ordered.some((value, index) => index > 0 && value < ordered[index - 1])) {
+    context.addIssue({ code: "custom", message: "Limits must be ordered: critical minimum ≤ warning minimum ≤ warning maximum ≤ critical maximum" });
+  }
 });
 
 export const appRouter = router({
   system: systemRouter,
   auth: router({
-    me: publicProcedure.query((opts) => opts.ctx.user),
+    registrationPolicy: publicProcedure.query(() => ({ enabled: process.env.NODE_ENV !== "production" })),
+    me: publicProcedure.query(async ({ ctx }) => {
+      if (!ctx.user || !bundleEnabled()) return publicUser(ctx.user);
+      const profile = await internalService<{ id: number; openId: string; name: string | null; email: string | null; role: db.User["role"] }>(3104, "/api/auth/profile", ctx.user.id);
+      return { ...publicUser(ctx.user)!, ...profile };
+    }),
+    demoAccounts: publicProcedure.query(() => demoAccountsEnabled()
+      ? DEMO_ACCOUNTS.map(({ label, email, password, role, description }) => ({ label, email, password, role, description }))
+      : []),
     login: publicProcedure
-      .input(z.object({ email: z.string().email(), password: z.string() }))
+      .input(z.object({ email: z.string().email(), password: passwordInput }))
       .mutation(async ({ input, ctx }) => {
         const user = await db.getUserByEmail(input.email);
-        if (!user || !user.password || !(await sdk.comparePassword(input.password, user.password))) {
-          throw new Error("Invalid email or password");
+        if ((isDemoAccount(input.email) && !demoAccountsEnabled()) || !user || !user.password || !(await sdk.comparePassword(input.password, user.password))) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
         }
         const token = await sdk.createSessionToken(user);
         ctx.res.cookie(COOKIE_NAME, token, getSessionCookieOptions(ctx.req));
-        return { token, user };
+        return { user: publicUser(user) };
       }),
     register: publicProcedure
-      .input(z.object({ email: z.string().email(), password: z.string(), name: z.string() }))
+      .input(z.object({ email: z.string().email(), password: newPasswordInput, name: z.string().trim().min(1).max(255) }))
       .mutation(async ({ input, ctx }) => {
+        if (process.env.NODE_ENV === "production") throw new TRPCError({ code: "FORBIDDEN", message: "Public registration is disabled for this factory. Ask an administrator to create your account." });
         if (await db.getUserByEmail(input.email)) throw new Error("Email already registered");
         const user = await db.createUser({
           email: input.email,
           password: await sdk.hashPassword(input.password),
           name: input.name,
-          openId: Math.random().toString(36).substring(7),
-          role: "user",
+          openId: randomUUID(),
+          role: "viewer",
         });
 
         const token = await sdk.createSessionToken(user);
         ctx.res.cookie(COOKIE_NAME, token, getSessionCookieOptions(ctx.req));
-        return { token, user };
+        return { user: publicUser(user) };
       }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
@@ -65,32 +175,295 @@ export const appRouter = router({
   }),
 
   devices: router({
-    list: publicProcedure.input(z.object({ status: deviceStatusEnum.optional(), type: deviceTypeEnum.optional(), zone: z.string().optional() }).optional()).query(({ input }) => db.getDevices(input)),
-    getById: publicProcedure.input(z.object({ id: z.number() })).query(({ input }) => db.getDeviceById(input.id)),
-    create: protectedProcedure.input(z.object({ deviceId: z.string(), name: z.string(), type: deviceTypeEnum, status: deviceStatusEnum.optional(), location: z.string().optional(), zone: z.string().optional() })).mutation(({ input }) => db.createDevice(input)),
-    update: protectedProcedure.input(z.object({ id: z.number(), name: z.string().optional(), status: deviceStatusEnum.optional() })).mutation(({ input: { id, ...data } }) => db.updateDevice(id, data)),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteDevice(input.id)),
-    getStats: publicProcedure.query(() => db.getDeviceStats()),
-    seed: protectedProcedure.mutation(async () => {
-      for (let i = 0; i < 10; i++) {
-        const device = await db.createDevice(mock.generateRandomDevice("sensor"));
-        await db.upsertAlertThresholds(device.id, mock.generateDefaultThresholds(device.id, "sensor"));
+    list: viewerProcedure.input(z.object({ status: deviceStatusEnum.optional(), type: deviceTypeEnum.optional(), zone: z.string().optional() }).optional()).query(({ input }) => db.getDevices(input)),
+    getById: viewerProcedure.input(z.object({ id: z.number() })).query(({ input }) => db.getDeviceById(input.id)),
+    getConnectedDevices: viewerProcedure.input(z.object({ id: z.number().int().positive() })).query(async ({ input }) => {
+      const gateway = await db.getDeviceById(input.id);
+      if (!gateway || gateway.type !== "gateway") return [];
+      const connected = await db.getDevicesForGateway(gateway.deviceId);
+      const latest = await db.getLatestReadings(connected.map((child) => child.id));
+      const latestByDevice = new Map(latest.map((reading) => [reading.deviceId, reading]));
+      return connected.map((child) => ({ ...child, latestReading: latestByDevice.get(child.id) ?? null }));
+    }),
+    getConnectedAssets: viewerProcedure.input(z.object({ id: z.number().int().positive() })).query(async ({ input }) => {
+      const gateway = await db.getDeviceById(input.id);
+      if (!gateway || gateway.type !== "gateway") return [];
+      return db.getAssetsForGateway(gateway.deviceId);
+    }),
+    // This screen registers the edge gateway identity. Industrial equipment
+    // itself is created as an AAS asset and linked to a gateway from its AAS page.
+    create: engineerProcedure.input(z.object({ deviceId: z.string().trim().min(3).max(64), name: z.string().trim().min(3).max(255), status: deviceStatusEnum.optional(), location: z.string().trim().max(255).optional(), zone: z.string().trim().max(100).optional() })).mutation(({ input }) => db.createDevice({ ...input, type: "gateway" })),
+    update: engineerProcedure.input(z.object({ id: z.number(), name: z.string().optional(), status: deviceStatusEnum.optional() })).mutation(({ input: { id, ...data } }) => db.updateDevice(id, data)),
+    delete: adminProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteDevice(input.id)),
+    getStats: viewerProcedure.query(() => db.getDeviceStats()),
+    pulseIndicator: engineerProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ input, ctx }) => {
+      const device = await db.getDeviceById(input.id);
+      const gatewayDeviceId = typeof device?.metadata?.gatewayId === "string" ? device.metadata.gatewayId : undefined;
+      if (!device || device.isDemo || device.type !== "sensor" || !gatewayDeviceId) {
+        throw new Error("A live gateway-connected WROVER sensor is required");
       }
-      return { success: true };
+      const commandId = randomUUID();
+      const userToken = await sdk.createSessionToken(ctx.user, { expiresInMs: 60_000 });
+      return publishWroverIndicator({ gatewayDeviceId, targetDeviceId: device.deviceId,
+        commandId, expiresAt: Date.now() + 10_000 }, userToken);
     }),
   }),
 
+  assets: router({
+    list: viewerProcedure.query(() => db.getAssets()),
+    getPassport: publicProcedure.input(z.object({ id: z.number().int().positive() })).query(async ({ input }) => {
+      const asset = await db.getAssetById(input.id);
+      if (!asset) throw new TRPCError({ code: "NOT_FOUND", message: "Product passport not found" });
+      return {
+        id: asset.id, assetId: asset.assetId, name: asset.name, assetType: asset.assetType,
+        manufacturer: asset.manufacturer, model: asset.model, serialNumber: asset.serialNumber,
+        manufacturerStreet: asset.manufacturerStreet, manufacturerZipcode: asset.manufacturerZipcode,
+        manufacturerCityTown: asset.manufacturerCityTown, manufacturerNationalCode: asset.manufacturerNationalCode,
+        manufacturerArticleNumber: asset.manufacturerArticleNumber, orderCodeOfManufacturer: asset.orderCodeOfManufacturer,
+        ratedValue: asset.ratedValue, ratedUnit: asset.ratedUnit, lifecycleStage: asset.lifecycleStage,
+        aasVersion: asset.aasVersion, updatedAt: asset.updatedAt,
+      };
+    }),
+    getById: viewerProcedure.input(z.object({ id: z.number() })).query(({ input }) => db.getAssetById(input.id)),
+    getForDevice: viewerProcedure.input(z.object({ devicePk: z.number() })).query(({ input }) => db.getAssetForDevice(input.devicePk)),
+    getShell: engineerProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
+      const asset = await db.getAssetRecordById(input.id);
+      if (!asset) return undefined;
+      const missingRequiredFields = asset.aasxImported ? [] : requiredAasFields(asset);
+      if (missingRequiredFields.length) return { shell: null, submodels: [], isDemo: asset.isDemo, missingRequiredFields };
+      return { shell: asset.aasShell, submodels: asset.aasSubmodels, conceptDescriptions: asset.aasConceptDescriptions, isDemo: asset.isDemo, missingRequiredFields: [] };
+    }),
+    exportAas: engineerProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
+      const asset = await db.getAssetRecordById(input.id);
+      if (!asset) return undefined;
+      if (!asset.aasxImported && requiredAasFields(asset).length) {
+        throw new Error("Complete the manufacturer identity and postal address fields before exporting this AAS");
+      }
+      return {
+        assetAdministrationShells: [asset.aasShell],
+        submodels: asset.aasSubmodels,
+        conceptDescriptions: asset.aasConceptDescriptions,
+      };
+    }),
+    getLifecycle: engineerProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
+      if (!await db.getAssetById(input.id)) return undefined;
+      return db.getAssetLifecycleEvents(input.id);
+    }),
+    getVersions: engineerProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
+      if (!await db.getAssetById(input.id)) return undefined;
+      return db.getAssetVersions(input.id);
+    }),
+    getConnections: engineerProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
+      if (!await db.getAssetById(input.id)) return undefined;
+      return db.getAssetConnections(input.id);
+    }),
+    create: engineerProcedure.input(z.object({
+      assetId: z.string().min(3).max(128),
+      ...assetIdentityInput.shape,
+      gatewayDevicePk: z.number().optional(),
+      connectionMode: z.enum(["gateway", "direct_mqtt"]).default("gateway"),
+      directDeviceId: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/).optional(),
+      protocol: z.enum(["mqtt", "opcua", "modbus_tcp", "modbus_rtu", "serial", "ada031_v4_serial", "mqtt_direct"]).default("mqtt"),
+      endpoint: z.string().max(512).refine((value) => !/:\/\/[^/]*@/.test(value), "Machine endpoints must not include credentials").optional(),
+      tagMappings: edgeTagMappingsSchema.default([]),
+    }).superRefine((input, context) => {
+      if (input.connectionMode === "direct_mqtt" && (!input.directDeviceId || input.protocol !== "mqtt_direct" || input.gatewayDevicePk)) {
+        context.addIssue({ code: "custom", message: "Direct MQTT requires its device ID and cannot also select a gateway", path: ["directDeviceId"] });
+      }
+      if (input.connectionMode === "gateway" && input.protocol === "mqtt_direct") {
+        context.addIssue({ code: "custom", message: "Select Direct MQTT for a device that connects without a gateway", path: ["connectionMode"] });
+      }
+    })).mutation(async ({ input, ctx }) => {
+      const assetIdentity = {
+        assetId: input.assetId,
+        name: input.name,
+        assetType: input.assetType,
+        manufacturer: input.manufacturer,
+        model: input.model,
+        manufacturerStreet: input.manufacturerStreet,
+        manufacturerZipcode: input.manufacturerZipcode,
+        manufacturerCityTown: input.manufacturerCityTown,
+        manufacturerNationalCode: input.manufacturerNationalCode,
+        manufacturerArticleNumber: input.manufacturerArticleNumber,
+        orderCodeOfManufacturer: input.orderCodeOfManufacturer,
+        serialNumber: input.serialNumber,
+        ratedValue: input.ratedValue,
+        ratedUnit: input.ratedUnit,
+      };
+      const { documents: aas, remote } = await provisionAas(assetIdentity);
+      try {
+      const created = await db.createAsset({
+        assetId: input.assetId,
+        name: input.name,
+        assetType: input.assetType,
+        manufacturer: input.manufacturer || null,
+        model: input.model || null,
+        manufacturerStreet: input.manufacturerStreet,
+        manufacturerZipcode: input.manufacturerZipcode,
+        manufacturerCityTown: input.manufacturerCityTown,
+        manufacturerNationalCode: input.manufacturerNationalCode,
+        manufacturerArticleNumber: input.manufacturerArticleNumber,
+        orderCodeOfManufacturer: input.orderCodeOfManufacturer,
+        ratedValue: input.ratedValue || null,
+        ratedUnit: input.ratedUnit || null,
+        serialNumber: input.serialNumber || null,
+        location: input.location || null,
+        zone: input.zone || null,
+        lifecycleStage: "planned",
+        isDemo: false,
+        aasShell: aas.shell,
+        aasSubmodels: aas.submodels,
+      }, input.connectionMode === "direct_mqtt" ? {
+        mode: "direct_mqtt" as const,
+        deviceId: input.directDeviceId!,
+      } : input.gatewayDevicePk ? {
+        mode: "gateway" as const,
+        deviceId: input.gatewayDevicePk,
+        protocol: input.protocol,
+        endpoint: input.endpoint,
+        tagMappings: input.tagMappings,
+        } : undefined, ctx.user.id);
+      let edgeSync: "not_requested" | "published" | "pending" = "not_requested";
+      if (input.gatewayDevicePk) {
+        const gateway = await db.getDeviceById(input.gatewayDevicePk);
+        if (gateway) {
+          try {
+            const published = await publishEdgeConfiguration({ schemaVersion: 1, gatewayDeviceId: gateway.deviceId, assets: await db.getGatewayAssetConnections(gateway.deviceId) });
+            edgeSync = published.published ? "published" : "pending";
+          } catch (syncError) {
+            console.error("[Edge configuration] Publish failed; gateway can be updated from the AAS page:", syncError instanceof Error ? syncError.message : "unknown error");
+            edgeSync = "pending";
+          }
+        }
+      }
+      return { id: created.id, assetId: created.assetId, provisioned: remote, edgeSync, connectionMode: input.connectionMode };
+      } catch (error) {
+        if (remote) {
+          try {
+            await removeProvisionedAas(assetIdentity);
+          } catch (cleanupError) {
+            console.error("[AAS provisioning] Compensating delete failed:", cleanupError instanceof Error ? cleanupError.message : "unknown error");
+          }
+        }
+        throw error;
+      }
+    }),
+    update: engineerProcedure.input(z.object({
+      id: z.number(), expectedVersion: z.number().int().positive(), changeNote: z.string().trim().min(3).max(1000), ...assetIdentityInput.shape,
+    })).mutation(async ({ input, ctx }) => {
+      const { id, expectedVersion, changeNote, ...identity } = input;
+      const current = await db.getAssetRecordById(id);
+      if (!current) throw new Error("Asset not found");
+      if (current.isDemo) throw new Error("Demo assets are read-only");
+      const updated = await updateAssetRevision(id, expectedVersion, identity, ctx.user.id, changeNote);
+      if (!updated) throw new Error("Asset not found");
+      return updated;
+    }),
+    restoreVersion: engineerProcedure.input(z.object({
+      id: z.number(), sourceVersion: z.number().int().positive(), expectedVersion: z.number().int().positive(),
+    })).mutation(async ({ input, ctx }) => {
+      const current = await db.getAssetRecordById(input.id);
+      if (!current) throw new Error("Asset not found");
+      if (current.isDemo || current.aasxImported) throw new Error("This asset type cannot be restored through the form editor");
+      const historical = await db.getAssetVersionSnapshot(input.id, input.sourceVersion);
+      const snapshot = historical?.snapshot as { asset?: Record<string, unknown> } | undefined;
+      if (!snapshot?.asset) throw new Error("The requested asset version was not found");
+      // Drizzle stores optional SQL strings as null; the edit contract treats
+      // omitted optional fields as undefined, so drop nulls before validating.
+      const restoredFields = Object.fromEntries(Object.entries(snapshot.asset).filter(([, value]) => value !== null));
+      const identity = assetIdentityInput.parse(restoredFields);
+      const result = await updateAssetRevision(
+        input.id,
+        input.expectedVersion,
+        identity,
+        ctx.user.id,
+        `Restored from version ${input.sourceVersion}`,
+      );
+      if (!result) throw new Error("Asset not found");
+      return result;
+    }),
+    exportGatewayConfiguration: engineerProcedure
+      .input(z.object({ gatewayDeviceId: z.string().min(1) }))
+      .query(async ({ input }) => ({
+        schemaVersion: 1,
+        gatewayDeviceId: input.gatewayDeviceId,
+        assets: await db.getGatewayAssetConnections(input.gatewayDeviceId),
+      })),
+    publishGatewayConfiguration: engineerProcedure
+      .input(z.object({ gatewayDevicePk: z.number().int().positive() }))
+      .mutation(async ({ input }) => {
+        const gateway = await db.getDeviceById(input.gatewayDevicePk);
+        if (!gateway || gateway.type !== "gateway" || gateway.isDemo) throw new Error("Select a registered live edge gateway");
+        const result = await publishEdgeConfiguration({
+          schemaVersion: 1,
+          gatewayDeviceId: gateway.deviceId,
+          assets: await db.getGatewayAssetConnections(gateway.deviceId),
+        });
+        return { ...result, gatewayDeviceId: gateway.deviceId };
+      }),
+    controlAda031: engineerProcedure.input(z.object({
+      id: z.number().int().positive(),
+      command: z.discriminatedUnion("action", [
+        z.object({ action: z.literal("jog"), joint: z.enum(["base", "shoulder", "elbow", "wrist_rotation", "gripper"]), direction: z.enum(["increase", "decrease"]) }),
+        z.object({ action: z.literal("set_profile"), profile: z.enum(["pick_and_place_repeat", "demonstration_moves"]) }),
+        z.object({ action: z.literal("neutral") }),
+        z.object({ action: z.literal("stop_program") }),
+      ]),
+    })).mutation(async ({ input, ctx }) => {
+      const asset = await db.getAssetRecordById(input.id);
+      if (!asset || asset.isDemo) throw new Error("A live registered ADA031 asset is required");
+      const connection = (await db.getAssetConnections(input.id)).find((candidate) => candidate.protocol === "ada031_v4_serial");
+      if (!connection) throw new Error("This asset has no ADA031 V4 USB serial control profile");
+      const commandId = randomUUID();
+      // Re-sign the current DB-backed role for one minute so DeviceService sees
+      // fresh authorization even when an older browser cookie has a stale role.
+      const userToken = await sdk.createSessionToken(ctx.user, { expiresInMs: 60_000 });
+      return publishAda031Control({
+        gatewayDeviceId: connection.gatewayDeviceId,
+        assetId: asset.assetId,
+        ...input.command,
+        commandId,
+        expiresAt: Date.now() + 10_000,
+      }, userToken);
+    }),
+    transition: engineerProcedure
+      .input(z.object({ id: z.number(), toStage: assetLifecycleStageEnum, note: z.string().max(1000).optional() }))
+      .mutation(async ({ input, ctx }) => {
+        const result = await db.transitionAssetLifecycle(input.id, input.toStage, ctx.user.id, input.note);
+        if (!result) throw new Error("Asset not found");
+        return result;
+      }),
+  }),
+
+  users: router({
+    list: adminProcedure.query(() => db.listUsers()),
+    create: adminProcedure.input(z.object({ email: z.string().email().max(320), name: z.string().trim().min(1).max(255), password: newPasswordInput,
+      role: z.enum(["viewer", "operator", "engineer", "admin"]).default("viewer") })).mutation(async ({ input }) => {
+      if (await db.getUserByEmail(input.email)) throw new TRPCError({ code: "CONFLICT", message: "This account already exists" });
+      return publicUser(await db.createUser({ ...input, password: await sdk.hashPassword(input.password), openId: randomUUID() }));
+    }),
+    setRole: adminProcedure
+      .input(z.object({ id: z.number(), role: z.enum(["viewer", "operator", "engineer", "admin"]) }))
+      .mutation(async ({ input, ctx }) => {
+        if (input.id === ctx.user.id && input.role !== "admin") throw new Error("You cannot remove your own administrator access");
+        const result = await db.updateUserRole(input.id, input.role);
+        if (!result) throw new Error("User not found");
+        return result;
+      }),
+  }),
+
   readings: router({
-    getForDevice: publicProcedure.input(z.object({ deviceId: z.number(), startTime: z.number(), endTime: z.number(), limit: z.number().optional() })).query(({ input }) => db.getSensorReadings(input.deviceId, input.startTime, input.endTime, input.limit)),
-    getLatest: publicProcedure.input(z.object({ deviceId: z.number() })).query(({ input }) => db.getLatestReading(input.deviceId)),
-    create: protectedProcedure.input(z.object({ deviceId: z.number(), temperature: z.number().optional(), timestamp: z.number() })).mutation(async ({ input }) => { await db.createSensorReading(input); return { success: true }; }),
+    getForDevice: viewerProcedure.input(telemetryRangeInput.safeExtend({ deviceId: z.number().int().positive(), limit: z.number().int().min(1).max(10000).optional() })).query(({ input }) => db.getSensorReadings(input.deviceId, input.startTime, input.endTime, input.limit)),
+    getLatest: viewerProcedure.input(z.object({ deviceId: z.number() })).query(({ input }) => db.getLatestReading(input.deviceId)),
+    getLatestBatch: viewerProcedure.input(z.object({ deviceIds: z.array(z.number().int().positive()).max(500) })).query(({ input }) => db.getLatestReadings(input.deviceIds)),
+    create: operatorProcedure.input(z.object({ deviceId: z.number(), temperature: z.number().optional(), timestamp: z.number() })).mutation(async ({ input }) => { await db.createSensorReading(input); return { success: true }; }),
   }),
 
   thresholds: router({
-    getForDevice: publicProcedure
+    getForDevice: engineerProcedure
       .input(z.object({ deviceId: z.number() }))
       .query(({ input }) => db.getAlertThresholds(input.deviceId)),
-    upsert: protectedProcedure
+    upsert: engineerProcedure
       .input(thresholdInputSchema)
       .mutation(async ({ input }) => {
         const existing = await db.getAlertThresholds(input.deviceId);
@@ -115,10 +488,17 @@ export const appRouter = router({
           enabled: input.enabled ?? true,
         });
       }),
-    upsertForDevice: protectedProcedure
+    upsertForDevice: engineerProcedure
       .input(z.object({
         deviceId: z.number(),
         thresholds: z.array(thresholdInputSchema),
+      }).superRefine((input, context) => {
+        if (input.thresholds.some((threshold) => threshold.deviceId !== input.deviceId)) {
+          context.addIssue({ code: "custom", message: "All thresholds must belong to the selected device" });
+        }
+        if (new Set(input.thresholds.map((threshold) => threshold.metric)).size !== input.thresholds.length) {
+          context.addIssue({ code: "custom", message: "Configure each metric only once" });
+        }
       }))
       .mutation(async ({ input }) => {
         await db.upsertAlertThresholds(input.deviceId, input.thresholds.map((t) => ({
@@ -136,108 +516,101 @@ export const appRouter = router({
   }),
 
   alerts: router({
-    list: publicProcedure.input(z.object({ deviceId: z.number().optional(), status: z.enum(["active", "acknowledged", "resolved"]).optional(), severity: alertSeverityEnum.optional(), limit: z.number().optional() }).optional()).query(({ input }) => db.getAlerts(input)),
-    update: protectedProcedure.input(z.object({ id: z.number(), status: z.enum(["active", "acknowledged", "resolved"]), acknowledgedBy: z.number().optional() })).mutation(({ input: { id, ...data } }) => db.updateAlert(id, data)),
-    updateStatus: protectedProcedure
-      .input(z.object({ id: z.number(), status: z.enum(["active", "acknowledged", "resolved"]) }))
-      .mutation(({ input }) => db.updateAlert(input.id, { status: input.status })),
-    getStats: publicProcedure.query(() => db.getAlertStats()),
+    list: viewerProcedure.input(z.object({ deviceId: z.number().int().positive().optional(), status: z.enum(["active", "acknowledged", "resolved"]).optional(), openOnly: z.boolean().optional(), severity: alertSeverityEnum.optional(), limit: z.number().int().min(1).max(1000).optional(), startTime: z.number().int().positive().optional(), endTime: z.number().int().positive().optional() }).optional()).query(({ input }) => db.getAlerts(input)),
+    getById: viewerProcedure.input(z.object({ id: z.number().int().positive() })).query(async ({ input }) => {
+      const alert = await db.getAlertById(input.id);
+      if (!alert) throw new TRPCError({ code: "NOT_FOUND", message: "Event not found" });
+      return alert;
+    }),
+    /** Legacy acknowledge route; a caller cannot select the acknowledging user's identity. */
+    update: operatorProcedure.input(z.object({ id: z.number(), status: z.literal("acknowledged") })).mutation(({ input, ctx }) =>
+      runIncidentMutation(() => db.acknowledgeAlert(input.id, ctx.user.id))),
+    updateStatus: operatorProcedure
+      .input(z.object({ id: z.number(), status: z.literal("acknowledged") }))
+      .mutation(({ input, ctx }) => runIncidentMutation(() => db.acknowledgeAlert(input.id, ctx.user.id))),
+    assignees: engineerProcedure.query(() => db.getAlertAssignees()),
+    assign: engineerProcedure.input(z.object({ id: z.number(), assignedToId: z.number().int().positive().nullable() }))
+      .mutation(({ input }) => runIncidentMutation(() => db.assignAlert(input.id, input.assignedToId))),
+    startDowntime: engineerProcedure.input(z.object({ id: z.number() }))
+      .mutation(({ input, ctx }) => runIncidentMutation(() => db.startAlertDowntime(input.id, ctx.user.id, ctx.user.role === "admin"))),
+    resolve: engineerProcedure.input(z.object({ id: z.number() }))
+      .mutation(({ input, ctx }) => runIncidentMutation(() => db.resolveAlert(input.id, ctx.user.id, ctx.user.role === "admin"))),
+    getStats: viewerProcedure.query(() => db.getAlertStats()),
   }),
 
   firmware: router({
-    list: publicProcedure
+    list: engineerProcedure
       .input(z.object({ deviceType: deviceTypeEnum.optional() }).optional())
-      .query(({ input }) => db.getFirmwareVersions(input?.deviceType)),
+      .query(async ({ input }) => (await db.getFirmwareVersions(input?.deviceType)).map(({ fileUrl, ...firmware }) => ({
+        ...firmware,
+        artifactAvailable: Boolean(fileUrl && firmware.checksum),
+      }))),
   }),
 
   ota: router({
-    deploy: protectedProcedure.input(z.object({ deviceId: z.number(), firmwareVersionId: z.number() })).mutation(async ({ input }) => db.createOtaDeployment({ ...input, status: "pending" })),
-    list: publicProcedure.input(z.object({ deviceId: z.number().optional(), limit: z.number().optional() }).optional()).query(({ input }) => db.getOtaDeployments(input)),
-    rollback: protectedProcedure
+    capability: engineerProcedure.query(() => ({ enabled: false, reason: otaUnavailableMessage })),
+    deploy: engineerProcedure.input(z.object({ deviceId: z.number(), firmwareVersionId: z.number() })).mutation(() => {
+      throw new TRPCError({ code: "PRECONDITION_FAILED", message: otaUnavailableMessage });
+    }),
+    list: engineerProcedure.input(z.object({ deviceId: z.number().optional(), limit: z.number().optional() }).optional()).query(({ input }) => db.getOtaDeployments(input)),
+    rollback: engineerProcedure
       .input(z.object({ deploymentId: z.number() }))
-      .mutation(async ({ input }) => {
-        const deployments = await db.getOtaDeployments();
-        const deployment = deployments.find((d) => d.id === input.deploymentId);
-        if (!deployment) {
-          throw new Error("Deployment not found");
-        }
-
-        await db.updateOtaDeployment(input.deploymentId, { status: "rolled_back" });
-
-        return {
-          success: true,
-          restoredVersion: deployment.firmwareVersionId,
-        };
+      .mutation(() => {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: otaUnavailableMessage });
       }),
   }),
 
   analytics: router({
-    getOverview: publicProcedure.query(async () => ({ devices: await db.getDeviceStats(), alerts: await db.getAlertStats() })),
-    getEnergy: publicProcedure.input(z.object({ startTime: z.number(), endTime: z.number(), intervalMs: z.number().optional() })).query(async ({ input }) => {
+    getCoverage: viewerProcedure.input(assetTelemetryInput).query(async ({ input, ctx }) => {
+      if (!bundleEnabled()) return { configured: false, assets: [] as AssetCoverage[] };
+      const chunks = Array.from({ length: Math.ceil(input.assetIds.length / 200) }, (_, index) => input.assetIds.slice(index * 200, (index + 1) * 200));
+      const assets = (await Promise.all(chunks.map(assetIds => internalService<AssetCoverage[]>(3105, "/api/analytics/coverage", ctx.user.id, { ...input, assetIds })))).flat();
+      return { configured: true, assets };
+    }),
+    getOverview: viewerProcedure.query(async () => ({ devices: await db.getDeviceStats(), alerts: await db.getAlertStats() })),
+    getEnergy: viewerProcedure.input(telemetryRangeInput).query(async ({ input }) => {
       const devices = await db.getDevices();
       return db.getAggregatedReadings(devices.map(d => d.id), input.startTime, input.endTime, input.intervalMs);
     }),
-    getEnergyConsumption: publicProcedure.input(z.object({ startTime: z.number(), endTime: z.number(), intervalMs: z.number().optional() })).query(async ({ input }) => {
+    getEnergyConsumption: viewerProcedure.input(telemetryRangeInput).query(async ({ input }) => {
       const devices = await db.getDevices();
       return db.getAggregatedReadings(devices.map(d => d.id), input.startTime, input.endTime, input.intervalMs);
     }),
-    getOEEMetrics: publicProcedure.query(async () => {
-      const availability = 92;
-      const performance = 88;
-      const quality = 96;
-      const oee = Number(((availability * performance * quality) / 10000).toFixed(2));
-      const trend = Array.from({ length: 7 }, (_, i) => ({
-        day: i + 1,
-        value: Number((oee - 2 + Math.random() * 4).toFixed(2)),
-      }));
-
-      return { availability, performance, quality, oee, trend };
-    }),
+    getAssetTelemetry: viewerProcedure.input(assetTelemetryInput).query(({ input }) =>
+      db.getAssetTelemetry(input.assetIds, input.startTime, input.endTime, input.intervalMs)),
+    getLatestAssetTelemetry: viewerProcedure.input(z.object({ assetId: z.string().min(3).max(128) })).query(async ({ input }) =>
+      (await db.getLatestAssetReadings([input.assetId]))[0] ?? null),
   }),
 
   export: router({
-    deviceReport: publicProcedure.input(z.object({ deviceId: z.number(), startTime: z.number(), endTime: z.number() })).mutation(async ({ input }) => {
+    deviceReport: viewerProcedure.input(telemetryRangeInput.safeExtend({ deviceId: z.number().int().positive() })).mutation(async ({ input }) => {
       const device = await db.getDeviceById(input.deviceId);
       if (!device) throw new Error("Device not found");
       const [readings, thresholds, alerts] = await Promise.all([
         db.getSensorReadings(input.deviceId, input.startTime, input.endTime),
         db.getAlertThresholds(input.deviceId),
-        db.getAlerts({ deviceId: input.deviceId, limit: 50 }),
+        db.getAlerts({ deviceId: input.deviceId, startTime: input.startTime, endTime: input.endTime, limit: 50 }),
       ]);
       return { html: pdf.generateDeviceReportHtml({ device, readings, thresholds, alerts, dateRange: { start: new Date(input.startTime), end: new Date(input.endTime) } }), filename: `device-report-${device.deviceId}.html` };
     }),
-    analyticsReport: publicProcedure.input(z.object({ startTime: z.number(), endTime: z.number() })).mutation(async ({ input }) => {
-      const [deviceStats, alertStats, devices] = await Promise.all([
-        db.getDeviceStats(),
-        db.getAlertStats(),
-        db.getDevices(),
-      ]);
-      const energyData = await db.getAggregatedReadings(devices.map((d) => d.id), input.startTime, input.endTime);
-
-      const oeeMetrics = {
-        availability: 92,
-        performance: 88,
-        quality: 96,
-        oee: Number(((92 * 88 * 96) / 10000).toFixed(2)),
-      };
-
+    analyticsReport: viewerProcedure.input(assetTelemetryInput).mutation(async ({ input }) => {
+      const analytics = await db.getAssetTelemetry(input.assetIds, input.startTime, input.endTime, input.intervalMs);
       return {
-        html: pdf.generateAnalyticsReportHtml({
-          overview: {
-            totalDevices: deviceStats.total,
-            onlineDevices: deviceStats.online,
-            activeAlerts: alertStats.active,
-            criticalAlerts: alertStats.critical,
-          },
-          oeeMetrics,
-          energyData,
+        html: pdf.generateAssetAnalyticsReportHtml({
+          assetCount: analytics.assets.length,
+          sampleCount: analytics.overall.sampleCount,
+          avgPower: analytics.overall.avgPower,
+          avgTemperature: analytics.overall.avgTemperature,
+          avgVibration: analytics.overall.avgVibration,
+          assets: analytics.assets.map(({ name, assetType, zone, sampleCount }) => ({ name, assetType, zone, sampleCount })),
+          timeline: analytics.timeline,
           dateRange: { start: new Date(input.startTime), end: new Date(input.endTime) },
         }),
         filename: `analytics-report-${Date.now()}.html`,
       };
     }),
-    alertHistoryReport: publicProcedure.input(z.object({ startTime: z.number(), endTime: z.number(), severity: alertSeverityEnum.optional() })).mutation(async ({ input }) => {
-      const allAlerts = await db.getAlerts({ limit: 500 });
+    alertHistoryReport: viewerProcedure.input(z.object({ startTime: z.number(), endTime: z.number(), severity: alertSeverityEnum.optional() })).mutation(async ({ input }) => {
+      const allAlerts = await db.getAlerts({ limit: 1000, startTime: input.startTime, endTime: input.endTime, severity: input.severity });
       const filtered = allAlerts.filter((a) => {
         const createdAtMs = new Date(a.createdAt).getTime();
         const inRange = createdAtMs >= input.startTime && createdAtMs <= input.endTime;
@@ -248,11 +621,14 @@ export const appRouter = router({
       const alerts = filtered.map((a) => ({
         id: a.id,
         deviceName: `Device ${a.deviceId}`,
+        errorCode: a.errorCode,
         message: a.message,
         type: a.type,
         severity: a.severity,
         status: a.status,
         createdAt: a.createdAt,
+        assignedToId: a.assignedToId,
+        downtimeStartedAt: a.downtimeStartedAt,
         resolvedAt: a.resolvedAt,
       }));
 
@@ -276,13 +652,33 @@ export const appRouter = router({
   }),
 
   notifications: router({
-    getConfigs: publicProcedure.query(() => notificationService.getConfigs()),
-    updateConfig: protectedProcedure.input(z.object({ configId: z.string(), enabled: z.boolean().optional(), recipient: z.string().optional() })).mutation(({ input: { configId, ...updates } }) => { notificationService.updateConfig(configId, updates); return { success: true }; }),
+    list: viewerProcedure.query(({ ctx }) => listNotifications(ctx.user.id)),
+    markRead: viewerProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ input, ctx }) => {
+      const row = await readNotification(ctx.user.id, input.id);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Notification not found" });
+      return row;
+    }),
+    retryEmail: engineerProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ input, ctx }) => {
+      const row = await retryNotification(ctx.user.id, input.id);
+      if (!row) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Notification is not eligible for retry" });
+      return row;
+    }),
+    getConfigs: adminProcedure.query(() => notificationConfiguration()),
+    updateConfig: adminProcedure.input(z.object({ configId: z.string(), enabled: z.boolean().optional(), recipient: z.string().optional() })).mutation(() => {
+      throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Configure Graph sender and recipient domains in the deployment environment. Incident recipients come from authorized dashboard accounts." });
+    }),
   }),
 
-  groups: router({
-    list: publicProcedure.query(() => deviceGroupingService.getAllGroups()),
-    create: protectedProcedure.input(z.object({ name: z.string(), type: z.nativeEnum(GroupType), deviceIds: z.array(z.number()) })).mutation(({ input }) => deviceGroupingService.createGroup(input.name, input.type, input.deviceIds)),
+  assistant: router({
+    ask: viewerProcedure.input(z.object({
+      question: z.string().trim().min(3).max(500),
+      selectedAssetId: z.string().trim().min(3).max(128).optional(),
+      history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(1200) })).max(12).optional(),
+    })).mutation(({ input, ctx }) => answerFactoryQuestion(input.question, {
+      role: ctx.user.role,
+      selectedAssetId: input.selectedAssetId,
+      history: input.history,
+    })),
   }),
 });
 

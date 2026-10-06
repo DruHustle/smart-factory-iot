@@ -28,25 +28,32 @@ import {
   Activity,
   Cpu,
   AlertTriangle,
-  History,
   BarChart3,
+  Bot,
   Download,
   Factory,
+  Layers,
+  Users,
+  Bell,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
 import { safeLocalStorage } from "@/lib/storage";
+import { hasMinimumRole } from "@/lib/access";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: Activity, label: "Monitoring", path: "/monitoring" },
   { icon: Cpu, label: "Devices", path: "/devices" },
+  { icon: Layers, label: "Assets", path: "/assets" },
   { icon: AlertTriangle, label: "Alerts", path: "/alerts" },
-  { icon: History, label: "Alert History", path: "/alert-history" },
+  { icon: Bell, label: "Notifications", path: "/notifications" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
-  { icon: Download, label: "OTA Updates", path: "/ota" },
+  { icon: Bot, label: "Assistant", path: "/assistant" },
+  { icon: Download, label: "OTA Updates", path: "/ota", minRole: "engineer" as const },
+  { icon: Users, label: "User Access", path: "/users", minRole: "admin" as const },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -61,7 +68,8 @@ export default function DashboardLayout({
 }) {
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = safeLocalStorage.getItem(SIDEBAR_WIDTH_KEY);
-    return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
+    const parsed = saved ? Number.parseInt(saved, 10) : DEFAULT_WIDTH;
+    return Number.isFinite(parsed) ? Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, parsed)) : DEFAULT_WIDTH;
   });
   const { isLoading, user } = useAuth();
 
@@ -110,7 +118,7 @@ export default function DashboardLayout({
         } as CSSProperties
       }
     >
-      <DashboardLayoutContent setSidebarWidth={setSidebarWidth}>
+      <DashboardLayoutContent sidebarWidth={sidebarWidth} setSidebarWidth={setSidebarWidth}>
         {children}
       </DashboardLayoutContent>
     </SidebarProvider>
@@ -119,21 +127,41 @@ export default function DashboardLayout({
 
 type DashboardLayoutContentProps = {
   children: React.ReactNode;
+  sidebarWidth: number;
   setSidebarWidth: (width: number) => void;
 };
 
 function DashboardLayoutContent({
   children,
+  sidebarWidth,
   setSidebarWidth,
 }: DashboardLayoutContentProps) {
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
-  const { state, toggleSidebar } = useSidebar();
+  const { state, toggleSidebar, setOpenMobile } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find((item) => item.path === location);
+  const previousLocationRef = useRef(location);
+  const visibleMenuItems = menuItems.filter((item) => !item.minRole || hasMinimumRole(user?.role, item.minRole));
+  const isMenuItemActive = (path: string) => path === "/" ? location === "/" : location === path || location.startsWith(`${path}/`);
+  const activeMenuItem = visibleMenuItems.find((item) => isMenuItemActive(item.path));
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = `${activeMenuItem?.label ?? "Factory workspace"} | Smart Factory IoT`;
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [activeMenuItem?.label]);
+
+  useEffect(() => {
+    if (previousLocationRef.current !== location) {
+      document.getElementById("dashboard-main")?.focus();
+      previousLocationRef.current = location;
+    }
+  }, [location]);
 
   useEffect(() => {
     if (isCollapsed) {
@@ -173,8 +201,15 @@ function DashboardLayoutContent({
 
   return (
     <>
+      <a
+        href="#dashboard-main"
+        className="fixed left-3 top-3 z-[100] -translate-y-20 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-lg transition-transform focus:translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        Skip to main content
+      </a>
       <div className="relative" ref={sidebarRef}>
         <Sidebar
+          aria-label="Primary navigation"
           collapsible="icon"
           className="border-r border-sidebar-border"
           disableTransition={isResizing}
@@ -203,13 +238,17 @@ function DashboardLayoutContent({
 
           <SidebarContent className="gap-0 py-2">
             <SidebarMenu className="px-2">
-              {menuItems.map((item) => {
-                const isActive = location === item.path;
+              {visibleMenuItems.map((item) => {
+                const isActive = isMenuItemActive(item.path);
                 return (
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton
                       isActive={isActive}
-                      onClick={() => setLocation(item.path)}
+                      aria-current={isActive ? "page" : undefined}
+                      onClick={() => {
+                        setLocation(item.path);
+                        if (isMobile) setOpenMobile(false);
+                      }}
                       tooltip={item.label}
                       className={`h-10 transition-all font-normal ${
                         isActive ? "bg-sidebar-accent" : ""
@@ -232,7 +271,7 @@ function DashboardLayoutContent({
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-sidebar-accent transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <button aria-label="Open account menu" className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-sidebar-accent transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <Avatar className="h-9 w-9 border border-sidebar-border shrink-0">
                     <AvatarFallback className="text-xs font-medium bg-primary/20 text-primary">
                       {user?.name?.charAt(0).toUpperCase()}
@@ -261,18 +300,39 @@ function DashboardLayoutContent({
           </SidebarFooter>
         </Sidebar>
         <div
-          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/30 transition-colors ${
-            isCollapsed ? "hidden" : ""
+          role="separator"
+          aria-label="Resize navigation"
+          aria-orientation="vertical"
+          aria-valuemin={MIN_WIDTH}
+          aria-valuemax={MAX_WIDTH}
+          aria-valuenow={sidebarWidth}
+          tabIndex={isCollapsed || isMobile ? -1 : 0}
+          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/30 focus:bg-primary/50 focus:outline-none transition-colors ${
+            isCollapsed ? "hidden" : "hidden md:block"
           }`}
           onMouseDown={() => {
             if (isCollapsed) return;
             setIsResizing(true);
           }}
+          onKeyDown={(event) => {
+            if (isCollapsed || isMobile) return;
+            if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+              event.preventDefault();
+              const direction = event.key === "ArrowLeft" ? -10 : 10;
+              setSidebarWidth(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, sidebarWidth + direction)));
+            } else if (event.key === "Home") {
+              event.preventDefault();
+              setSidebarWidth(MIN_WIDTH);
+            } else if (event.key === "End") {
+              event.preventDefault();
+              setSidebarWidth(MAX_WIDTH);
+            }
+          }}
           style={{ zIndex: 50 }}
         />
       </div>
 
-      <SidebarInset className="bg-background">
+      <SidebarInset id="dashboard-main" tabIndex={-1} className="min-w-0 bg-background">
         {isMobile && (
           <div className="flex border-b border-border h-14 items-center justify-between bg-background px-2 sticky top-0 z-40">
             <div className="flex items-center gap-2">
@@ -286,7 +346,7 @@ function DashboardLayoutContent({
             </div>
           </div>
         )}
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <div className="min-w-0 flex-1 p-4 md:p-6">{children}</div>
       </SidebarInset>
     </>
   );

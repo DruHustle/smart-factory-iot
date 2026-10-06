@@ -1,5 +1,12 @@
 import { format } from "date-fns";
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[character]!);
+}
+
+
 // PDF generation types
 export interface DeviceReportData {
   device: {
@@ -43,24 +50,20 @@ export interface DeviceReportData {
   };
 }
 
-export interface AnalyticsReportData {
-  overview: {
-    totalDevices: number;
-    onlineDevices: number;
-    activeAlerts: number;
-    criticalAlerts: number;
-  };
-  oeeMetrics: {
-    availability: number;
-    performance: number;
-    quality: number;
-    oee: number;
-  };
-  energyData: {
+export interface AssetAnalyticsReportData {
+  assetCount: number;
+  sampleCount: number;
+  avgPower: number | null;
+  avgTemperature: number | null;
+  avgVibration: number | null;
+  assets: { name: string; assetType: string; zone: string | null; sampleCount: number }[];
+  timeline: {
     timestamp: number;
     avgPower: number | null;
     avgTemperature: number | null;
     avgHumidity: number | null;
+    avgVibration: number | null;
+    count: number;
   }[];
   dateRange: {
     start: Date;
@@ -72,11 +75,14 @@ export interface AlertHistoryReportData {
   alerts: {
     id: number;
     deviceName: string;
+    errorCode: string;
     message: string;
     type: string;
     severity: string;
     status: string;
     createdAt: Date;
+    assignedToId: number | null;
+    downtimeStartedAt: Date | null;
     resolvedAt: Date | null;
   }[];
   summary: {
@@ -224,7 +230,7 @@ export function generateDeviceReportHtml(data: DeviceReportData): string {
 </head>
 <body>
   <div class="header">
-    <h1>Device Report: ${device.name}</h1>
+    <h1>Device Report: ${escapeHtml(device.name)}</h1>
     <div class="subtitle">
       Generated on ${format(new Date(), "MMMM d, yyyy 'at' HH:mm")} | 
       Data from ${format(dateRange.start, "MMM d, yyyy")} to ${format(dateRange.end, "MMM d, yyyy")}
@@ -236,27 +242,27 @@ export function generateDeviceReportHtml(data: DeviceReportData): string {
     <div class="info-grid">
       <div class="info-item">
         <div class="label">Device ID</div>
-        <div class="value">${device.deviceId}</div>
+        <div class="value">${escapeHtml(device.deviceId)}</div>
       </div>
       <div class="info-item">
         <div class="label">Type</div>
-        <div class="value">${device.type}</div>
+        <div class="value">${escapeHtml(device.type)}</div>
       </div>
       <div class="info-item">
         <div class="label">Status</div>
-        <div class="value"><span class="status-badge status-${device.status}">${device.status}</span></div>
+        <div class="value"><span class="status-badge status-${escapeHtml(device.status)}">${escapeHtml(device.status)}</span></div>
       </div>
       <div class="info-item">
         <div class="label">Firmware</div>
-        <div class="value">${device.firmwareVersion ?? "N/A"}</div>
+        <div class="value">${escapeHtml(device.firmwareVersion ?? "N/A")}</div>
       </div>
       <div class="info-item">
         <div class="label">Zone</div>
-        <div class="value">${device.zone ?? "N/A"}</div>
+        <div class="value">${escapeHtml(device.zone ?? "N/A")}</div>
       </div>
       <div class="info-item">
         <div class="label">Location</div>
-        <div class="value">${device.location ?? "N/A"}</div>
+        <div class="value">${escapeHtml(device.location ?? "N/A")}</div>
       </div>
     </div>
   </div>
@@ -302,8 +308,8 @@ export function generateDeviceReportHtml(data: DeviceReportData): string {
       ${stats.pressure ? `
       <div class="stat-card">
         <div class="metric">Pressure</div>
-        <div class="value">${stats.pressure.avg.toFixed(2)} bar</div>
-        <div class="range">${stats.pressure.min.toFixed(2)} - ${stats.pressure.max.toFixed(2)} bar</div>
+        <div class="value">${stats.pressure.avg.toFixed(2)} (reported unit)</div>
+        <div class="range">${stats.pressure.min.toFixed(2)} - ${stats.pressure.max.toFixed(2)} (reported unit)</div>
       </div>
       ` : ""}
     </div>
@@ -326,7 +332,7 @@ export function generateDeviceReportHtml(data: DeviceReportData): string {
       <tbody>
         ${thresholds.map(t => `
         <tr>
-          <td>${t.metric}</td>
+          <td>${escapeHtml(t.metric)}</td>
           <td>${t.minValue ?? "—"}</td>
           <td>${t.maxValue ?? "—"}</td>
           <td>${t.warningMin ?? "—"}</td>
@@ -355,9 +361,9 @@ export function generateDeviceReportHtml(data: DeviceReportData): string {
         ${alerts.slice(0, 20).map(a => `
         <tr>
           <td>${format(new Date(a.createdAt), "MMM d, HH:mm")}</td>
-          <td><span class="status-badge status-${a.severity}">${a.severity}</span></td>
-          <td>${a.message}</td>
-          <td>${a.status}</td>
+          <td><span class="status-badge status-${escapeHtml(a.severity)}">${escapeHtml(a.severity)}</span></td>
+          <td>${escapeHtml(a.message)}</td>
+          <td>${escapeHtml(a.status)}</td>
         </tr>
         `).join("")}
       </tbody>
@@ -373,176 +379,50 @@ export function generateDeviceReportHtml(data: DeviceReportData): string {
   `;
 }
 
-export function generateAnalyticsReportHtml(data: AnalyticsReportData): string {
-  const { overview, oeeMetrics, energyData, dateRange } = data;
-
+export function generateAssetAnalyticsReportHtml(data: AssetAnalyticsReportData): string {
+  const { assetCount, sampleCount, avgPower, avgTemperature, avgVibration, assets, timeline, dateRange } = data;
+  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;",
+  })[character]!);
+  const display = (value: number | null, digits = 1) => value === null ? "—" : value.toFixed(digits);
   return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <style>
-    body {
-      font-family: 'Segoe UI', Arial, sans-serif;
-      color: #1a1a2e;
-      line-height: 1.6;
-      padding: 40px;
-      max-width: 800px;
-      margin: 0 auto;
-    }
-    .header {
-      border-bottom: 3px solid #3b82f6;
-      padding-bottom: 20px;
-      margin-bottom: 30px;
-    }
-    .header h1 {
-      margin: 0;
-      color: #1a1a2e;
-      font-size: 28px;
-    }
-    .header .subtitle {
-      color: #64748b;
-      font-size: 14px;
-      margin-top: 5px;
-    }
-    .section {
-      margin-bottom: 30px;
-    }
-    .section h2 {
-      color: #3b82f6;
-      font-size: 18px;
-      border-bottom: 1px solid #e2e8f0;
-      padding-bottom: 10px;
-      margin-bottom: 15px;
-    }
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 15px;
-    }
-    .kpi-card {
-      background: #f8fafc;
-      padding: 20px;
-      border-radius: 8px;
-      text-align: center;
-    }
-    .kpi-card .label {
-      font-size: 12px;
-      color: #64748b;
-      text-transform: uppercase;
-    }
-    .kpi-card .value {
-      font-size: 28px;
-      font-weight: 700;
-      color: #3b82f6;
-    }
-    .oee-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 15px;
-    }
-    .oee-card {
-      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-      color: white;
-      padding: 20px;
-      border-radius: 8px;
-      text-align: center;
-    }
-    .oee-card .label {
-      font-size: 12px;
-      opacity: 0.8;
-      text-transform: uppercase;
-    }
-    .oee-card .value {
-      font-size: 32px;
-      font-weight: 700;
-    }
-    .oee-card.highlight {
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-    th, td {
-      padding: 10px;
-      text-align: left;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    th {
-      background: #f8fafc;
-      font-weight: 600;
-      font-size: 12px;
-      text-transform: uppercase;
-      color: #64748b;
-    }
-    .footer {
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 1px solid #e2e8f0;
-      font-size: 12px;
-      color: #94a3b8;
-      text-align: center;
-    }
+    body{font:14px/1.55 'Segoe UI',Arial,sans-serif;color:#172033;padding:36px;max-width:900px;margin:auto}
+    header{border-bottom:3px solid #2563eb;padding-bottom:16px;margin-bottom:24px}h1{margin:0;font-size:26px}
+    .muted{color:#64748b}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0}
+    .card{background:#f1f5f9;border-radius:8px;padding:14px}.label{font-size:11px;text-transform:uppercase;color:#64748b}
+    .value{font-size:22px;font-weight:700;margin-top:4px}section{margin:26px 0}h2{font-size:17px;color:#1d4ed8}
+    table{width:100%;border-collapse:collapse;margin-top:10px}th,td{text-align:left;padding:9px;border-bottom:1px solid #e2e8f0}
+    th{font-size:11px;text-transform:uppercase;color:#64748b;background:#f8fafc}.footer{border-top:1px solid #e2e8f0;padding-top:14px;margin-top:32px;color:#64748b;font-size:12px}
+    @media print{body{padding:16px}.grid{grid-template-columns:repeat(2,1fr)}}
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>Analytics Report</h1>
-    <div class="subtitle">
+  <header>
+    <h1>Asset Telemetry Report</h1>
+    <div class="muted">
       Generated on ${format(new Date(), "MMMM d, yyyy 'at' HH:mm")} | 
       Data from ${format(dateRange.start, "MMM d, yyyy")} to ${format(dateRange.end, "MMM d, yyyy")}
     </div>
+  </header>
+  <div class="grid">
+    <div class="card"><div class="label">Assets in scope</div><div class="value">${assetCount}</div></div>
+    <div class="card"><div class="label">Samples</div><div class="value">${sampleCount}</div></div>
+    <div class="card"><div class="label">Average power (W)</div><div class="value">${display(avgPower, 0)}</div></div>
+    <div class="card"><div class="label">Average temperature (°C)</div><div class="value">${display(avgTemperature)}</div></div>
   </div>
-
-  <div class="section">
-    <h2>System Overview</h2>
-    <div class="kpi-grid">
-      <div class="kpi-card">
-        <div class="label">Total Devices</div>
-        <div class="value">${overview.totalDevices}</div>
-      </div>
-      <div class="kpi-card">
-        <div class="label">Online</div>
-        <div class="value" style="color: #10b981;">${overview.onlineDevices}</div>
-      </div>
-      <div class="kpi-card">
-        <div class="label">Active Alerts</div>
-        <div class="value" style="color: #f59e0b;">${overview.activeAlerts}</div>
-      </div>
-      <div class="kpi-card">
-        <div class="label">Critical</div>
-        <div class="value" style="color: #ef4444;">${overview.criticalAlerts}</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <h2>OEE Metrics</h2>
-    <div class="oee-grid">
-      <div class="oee-card">
-        <div class="label">Availability</div>
-        <div class="value">${oeeMetrics.availability}%</div>
-      </div>
-      <div class="oee-card">
-        <div class="label">Performance</div>
-        <div class="value">${oeeMetrics.performance}%</div>
-      </div>
-      <div class="oee-card">
-        <div class="label">Quality</div>
-        <div class="value">${oeeMetrics.quality}%</div>
-      </div>
-      <div class="oee-card highlight">
-        <div class="label">Overall OEE</div>
-        <div class="value">${oeeMetrics.oee}%</div>
-      </div>
-    </div>
-  </div>
-
-  ${energyData.length > 0 ? `
-  <div class="section">
-    <h2>Energy & Environmental Data</h2>
+  <section><h2>Assets in scope</h2>
+    <table><thead><tr><th>Asset</th><th>Type</th><th>Zone</th><th>Samples</th></tr></thead><tbody>
+      ${assets.map((asset) => `<tr><td>${escapeHtml(asset.name)}</td><td>${escapeHtml(asset.assetType)}</td><td>${escapeHtml(asset.zone ?? "—")}</td><td>${asset.sampleCount}</td></tr>`).join("") || '<tr><td colspan="4">No assets matched this selection.</td></tr>'}
+    </tbody></table>
+  </section>
+  ${timeline.length > 0 ? `
+  <section>
+    <h2>Telemetry averages by interval</h2>
     <table>
       <thead>
         <tr>
@@ -550,24 +430,28 @@ export function generateAnalyticsReportHtml(data: AnalyticsReportData): string {
           <th>Avg Power (W)</th>
           <th>Avg Temp (°C)</th>
           <th>Avg Humidity (%)</th>
+          <th>Avg Vibration</th>
+          <th>Samples</th>
         </tr>
       </thead>
       <tbody>
-        ${energyData.slice(0, 20).map(d => `
+        ${timeline.slice(0, 100).map(d => `
         <tr>
           <td>${format(new Date(d.timestamp), "MMM d, HH:mm")}</td>
-          <td>${d.avgPower?.toFixed(0) ?? "—"}</td>
-          <td>${d.avgTemperature?.toFixed(1) ?? "—"}</td>
-          <td>${d.avgHumidity?.toFixed(1) ?? "—"}</td>
+          <td>${display(d.avgPower, 0)}</td>
+          <td>${display(d.avgTemperature)}</td>
+          <td>${display(d.avgHumidity)}</td>
+          <td>${display(d.avgVibration, 2)}</td>
+          <td>${d.count}</td>
         </tr>
         `).join("")}
       </tbody>
     </table>
-  </div>
+  </section>
   ` : ""}
 
   <div class="footer">
-    Smart Factory IoT Dashboard | Analytics Report | Page 1 of 1
+    Smart Factory IoT Dashboard | Asset telemetry report · vibration average ${display(avgVibration, 2)}
   </div>
 </body>
 </html>
@@ -576,6 +460,14 @@ export function generateAnalyticsReportHtml(data: AnalyticsReportData): string {
 
 export function generateAlertHistoryReportHtml(data: AlertHistoryReportData): string {
   const { alerts, summary, dateRange } = data;
+  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[character] ?? character);
+  const duration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+  };
 
   return `
 <!DOCTYPE html>
@@ -591,6 +483,7 @@ export function generateAlertHistoryReportHtml(data: AlertHistoryReportData): st
       max-width: 800px;
       margin: 0 auto;
     }
+    @page { size: A4 landscape; margin: 12mm; }
     .header {
       border-bottom: 3px solid #f59e0b;
       padding-bottom: 20px;
@@ -723,9 +616,12 @@ export function generateAlertHistoryReportHtml(data: AlertHistoryReportData): st
         <tr>
           <th>Time</th>
           <th>Device</th>
+          <th>Error code</th>
           <th>Severity</th>
-          <th>Type</th>
           <th>Message</th>
+          <th>Assigned engineer ID</th>
+          <th>Downtime</th>
+          <th>Resolution</th>
           <th>Status</th>
         </tr>
       </thead>
@@ -733,11 +629,14 @@ export function generateAlertHistoryReportHtml(data: AlertHistoryReportData): st
         ${alerts.map(a => `
         <tr>
           <td>${format(new Date(a.createdAt), "MMM d, HH:mm")}</td>
-          <td>${a.deviceName}</td>
-          <td><span class="status-badge status-${a.severity}">${a.severity}</span></td>
-          <td>${a.type.replace(/_/g, " ")}</td>
-          <td>${a.message}</td>
-          <td><span class="status-badge status-${a.status}">${a.status}</span></td>
+          <td>${escapeHtml(a.deviceName)}</td>
+          <td>${escapeHtml(a.errorCode)}</td>
+          <td><span class="status-badge status-${escapeHtml(a.severity)}">${escapeHtml(a.severity)}</span></td>
+          <td>${escapeHtml(a.message)}<br><small>${escapeHtml(a.type.replace(/_/g, " "))}</small></td>
+          <td>${a.assignedToId ?? "Unassigned"}</td>
+          <td>${a.downtimeStartedAt ? format(new Date(a.downtimeStartedAt), "MMM d, HH:mm") : "Not recorded"}</td>
+          <td>${a.downtimeStartedAt && a.resolvedAt ? duration(Math.max(0, Math.floor((new Date(a.resolvedAt).getTime() - new Date(a.downtimeStartedAt).getTime()) / 1000))) : "—"}</td>
+          <td><span class="status-badge status-${escapeHtml(a.status)}">${escapeHtml(a.status)}</span></td>
         </tr>
         `).join("")}
       </tbody>

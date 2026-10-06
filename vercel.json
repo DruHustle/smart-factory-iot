@@ -1,17 +1,22 @@
 {
   "version": 2,
+  "buildCommand": "pnpm build",
+  "outputDirectory": "dist/public",
   "rewrites": [
+    { "source": "/api/:path*", "destination": "https://configure-render-origin.example.invalid/api/:path*" },
+    { "source": "/:path*", "destination": "/index.html" }
+  ],
+  "headers": [
     {
-      "source": "/smart-factory-iot/assets/(.*)",
-      "destination": "/public/assets/$1"
+      "source": "/api/:path*",
+      "headers": [{ "key": "Cache-Control", "value": "private, no-store" }]
     },
     {
-      "source": "/smart-factory-iot/(.*)",
-      "destination": "/public/$1"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/public/index.html"
+      "source": "/:path*",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
     }
   ]
 }

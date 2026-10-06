@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { ArrowLeft, Factory, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -26,7 +26,7 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[url('/images/industrial-blur-bg.jpg')] bg-cover bg-center relative">
+    <main className="relative flex min-h-screen items-center justify-center bg-[url('/images/industrial-blur-bg.webp')] bg-cover bg-center p-4 sm:p-6">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
       <Card className="w-full max-w-md glass-panel border-white/10 relative z-10 animate-in fade-in zoom-in duration-500">
@@ -36,7 +36,7 @@ export default function ForgotPassword() {
               <Factory className="w-7 h-7 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold tracking-wide">Reset Password</CardTitle>
+          <h1 className="text-2xl font-bold tracking-wide">Reset Password</h1>
           <CardDescription className="text-muted-foreground">
             Enter your account email to request a reset
           </CardDescription>
@@ -53,6 +53,7 @@ export default function ForgotPassword() {
                 <Input
                   id="email"
                   type="email"
+                  autoComplete="email"
                   placeholder="name@factory.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -78,6 +79,6 @@ export default function ForgotPassword() {
           </Button>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: smart-factory-dashboard
+data:
+  allowed-origin: https://factory.example.com
+  # Set to the ingress controller's trusted source addresses before rollout.
+  trusted-proxy-addresses: ""
+  aas-repository-url: https://aas.replace-with-company-endpoint.invalid
+  aas-submodel-repository-url: https://submodels.replace-with-company-endpoint.invalid
+  aas-concept-description-repository-url: https://concept-descriptions.replace-with-company-endpoint.invalid
+  aas-registry-url: https://aas-registry.replace-with-company-endpoint.invalid
+  aas-submodel-registry-url: https://submodel-registry.replace-with-company-endpoint.invalid
+  aasx-file-server-url: https://aasx.replace-with-company-endpoint.invalid
+  aas-oidc-token-url: ""
+  aas-oidc-discovery-url: https://identity.replace-with-company-endpoint.invalid/.well-known/openid-configuration
+  aas-oidc-scope: ""
+  aas-provisioning-api-url: http://smart-factory-device-service.smart-factory.svc.cluster.local/api/assets

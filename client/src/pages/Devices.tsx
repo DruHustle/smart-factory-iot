@@ -42,11 +42,14 @@ import {
   RefreshCw,
   Plus,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import ThresholdConfigDialog from "@/components/ThresholdConfigDialog";
 import CreateDeviceDialog from "@/components/CreateDeviceDialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { canAdministerUsers, canViewEngineering } from "@/lib/access";
+import { getConnectivityRecordId } from "@/lib/device-display";
 
 type DeviceStatus = "online" | "offline" | "maintenance" | "error";
 type DeviceType = "sensor" | "actuator" | "controller" | "gateway";
@@ -67,6 +70,7 @@ const typeColors: Record<DeviceType, string> = {
 
 export default function Devices() {
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -78,7 +82,7 @@ export default function Devices() {
 
   const utils = trpc.useUtils();
 
-  const { data: devices, isLoading } = trpc.devices.list.useQuery({
+  const { data: devices, isLoading, isError, error, refetch } = trpc.devices.list.useQuery({
     status: statusFilter !== "all" ? (statusFilter as DeviceStatus) : undefined,
     type: typeFilter !== "all" ? (typeFilter as DeviceType) : undefined,
   });
@@ -95,12 +99,15 @@ export default function Devices() {
     },
   });
 
-  const filteredDevices = devices?.filter(
-    (device) =>
-      device.name.toLowerCase().includes(search.toLowerCase()) ||
-      device.deviceId.toLowerCase().includes(search.toLowerCase()) ||
-      device.zone?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredDevices = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    return (devices ?? []).filter((device) => !query || [
+      device.name,
+      getConnectivityRecordId(device),
+      device.zone,
+      device.location,
+    ].some((value) => value?.toLocaleLowerCase().includes(query)));
+  }, [devices, search]);
 
   const handleDelete = () => {
     if (selectedDevice) {
@@ -117,15 +124,17 @@ export default function Devices() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Device Management</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Gateway & Edge Device Connectivity</h1>
           <p className="text-muted-foreground">
-            Manage and configure your IoT devices
+            Register edge gateways, devices and monitor connectivity.
           </p>
         </div>
-        <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Device
-        </Button>
+        {canViewEngineering(user?.role) && (
+          <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Register Gateway
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -135,6 +144,7 @@ export default function Devices() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                aria-label="Search connectivity records"
                 placeholder="Search by name, ID, or zone..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -142,7 +152,7 @@ export default function Devices() {
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-40">
+              <SelectTrigger aria-label="Device status filter" className="w-full sm:w-40">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -154,7 +164,7 @@ export default function Devices() {
               </SelectContent>
             </Select>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-full sm:w-40">
+              <SelectTrigger aria-label="Device type filter" className="w-full sm:w-40">
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
               <SelectContent>
@@ -174,22 +184,28 @@ export default function Devices() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Cpu className="h-5 w-5 text-primary" />
-            Devices ({filteredDevices?.length ?? 0})
+            Connectivity records <span aria-live="polite">({filteredDevices.length})</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+            <div role="status" className="flex items-center justify-center gap-3 py-12 text-sm text-muted-foreground">
+              <RefreshCw aria-hidden="true" className="h-6 w-6 animate-spin" />
+              Loading connectivity records…
             </div>
-          ) : filteredDevices?.length === 0 ? (
+          ) : isError ? (
+            <div role="alert" className="flex flex-col items-center gap-3 py-12 text-center">
+              <p className="text-sm text-destructive">Connectivity records could not be loaded. {error?.message}</p>
+              <Button variant="outline" size="sm" onClick={() => void refetch()}>Try again</Button>
+            </div>
+          ) : filteredDevices.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
               <Cpu className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No devices found</h3>
               <p className="text-muted-foreground text-center">
                 {search || statusFilter !== "all" || typeFilter !== "all"
                   ? "Try adjusting your filters"
-                  : "Add your first device to get started"}
+                  : "Register an edge gateway that connects your equipment"}
               </p>
             </div>
           ) : (
@@ -197,23 +213,29 @@ export default function Devices() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Device</TableHead>
+                    <TableHead>Gateway ID - Device ID</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Zone</TableHead>
                     <TableHead>Firmware</TableHead>
                     <TableHead>Last Seen</TableHead>
-                    <TableHead className="w-12"></TableHead>
+                    <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredDevices?.map((device) => (
+                  {filteredDevices.map((device) => (
                     <TableRow key={device.id}>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{device.name}</p>
+                            <button
+                              type="button"
+                              className="text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                              onClick={() => setLocation(`/devices/${device.id}`)}
+                            >
+                              {device.name}
+                            </button>
                           <p className="text-xs text-muted-foreground">
-                            {device.deviceId}
+                            {getConnectivityRecordId(device)}
                           </p>
                         </div>
                       </TableCell>
@@ -222,12 +244,12 @@ export default function Devices() {
                           variant="outline"
                           className={typeColors[device.type as DeviceType]}
                         >
-                          {device.type}
+                          <span className="capitalize">{device.type}</span>
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge className={statusColors[device.status as DeviceStatus]}>
-                          {device.status}
+                          <span className="capitalize">{device.status}</span>
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -248,7 +270,7 @@ export default function Devices() {
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
+                            <Button variant="ghost" size="icon" aria-label={`Actions for ${device.name}`}>
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -259,22 +281,24 @@ export default function Devices() {
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => openThresholdConfig(device.id)}
-                            >
-                              <Settings className="h-4 w-4 mr-2" />
-                              Configure Thresholds
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => {
-                                setSelectedDevice(device.id);
-                                setDeleteDialogOpen(true);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
+                            {canViewEngineering(user?.role) && (
+                              <DropdownMenuItem onClick={() => openThresholdConfig(device.id)}>
+                                <Settings className="h-4 w-4 mr-2" />
+                                Configure Thresholds
+                              </DropdownMenuItem>
+                            )}
+                            {canAdministerUsers(user?.role) && (
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => {
+                                  setSelectedDevice(device.id);
+                                  setDeleteDialogOpen(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -293,8 +317,7 @@ export default function Devices() {
           <DialogHeader>
             <DialogTitle>Delete Device</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this device? This action cannot be
-              undone and will remove all associated sensor data and alerts.
+              Remove this connectivity record? Existing telemetry history is retained. A gateway linked to an AAS asset must be disconnected from the asset first.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -316,7 +339,7 @@ export default function Devices() {
       </Dialog>
 
       {/* Threshold Configuration Dialog */}
-      {thresholdDeviceId && (
+      {thresholdDeviceId && canViewEngineering(user?.role) && (
         <ThresholdConfigDialog
           deviceId={thresholdDeviceId}
           open={thresholdDialogOpen}
@@ -324,10 +347,12 @@ export default function Devices() {
         />
       )}
 
-      <CreateDeviceDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-      />
+      {canViewEngineering(user?.role) && (
+        <CreateDeviceDialog
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+        />
+      )}
     </div>
   );
 }

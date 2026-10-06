@@ -1,0 +1,26 @@
+# Allow browser ingress only from the configured ingress controller. Telemetry
+# service-to-dashboard ingestion is the only permitted in-cluster caller.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dashboard-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: smart-factory-dashboard
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 3000
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: smart-factory-telemetry-service
+      ports:
+        - protocol: TCP
+          port: 3000

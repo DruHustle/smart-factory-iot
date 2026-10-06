@@ -166,7 +166,7 @@ export default function ThresholdConfigDialog({
                     </div>
                   </CardHeader>
                   <CardContent className={threshold.enabled ? "" : "opacity-50"}>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label className="text-xs text-destructive">Critical Limits</Label>
                         <div className="grid grid-cols-2 gap-2">

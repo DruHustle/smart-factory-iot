@@ -10,7 +10,7 @@ export interface DemoAccount {
   label: string;
   email: string;
   password: string;
-  role: 'admin' | 'user' | 'operator' | 'technician';
+  role: 'admin' | 'viewer' | 'operator' | 'engineer';
   description: string;
 }
 
@@ -26,31 +26,31 @@ export interface DemoAccount {
  */
 export const DEMO_ACCOUNTS: DemoAccount[] = [
   {
-    label: 'Admin',
+    label: 'Demo Admin',
     email: 'admin@dev.local',
     password: 'password123',
     role: 'admin',
     description: 'Full system access and administration',
   },
   {
-    label: 'Operator',
+    label: 'Demo Operator',
     email: 'operator@dev.local',
     password: 'password123',
-    role: 'user',
+    role: 'operator',
     description: 'Device monitoring and basic operations',
   },
   {
-    label: 'Technician',
+    label: 'Demo Engineer',
     email: 'tech@dev.local',
     password: 'password123',
-    role: 'user',
+    role: 'engineer',
     description: 'Maintenance and technical support',
   },
   {
-    label: 'Demo',
+    label: 'Demo Viewer',
     email: 'demo@dev.local',
     password: 'password123',
-    role: 'user',
+    role: 'viewer',
     description: 'Limited demo access for testing',
   },
 ];
@@ -73,5 +73,9 @@ export function getAllDemoAccounts(): DemoAccount[] {
  * Check if an email is a demo account
  */
 export function isDemoAccount(email: string): boolean {
-  return DEMO_ACCOUNTS.some((account) => account.email === email);
+  return DEMO_ACCOUNTS.some((account) => account.email.toLowerCase() === email.toLowerCase());
+}
+
+export function demoAccountsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.NODE_ENV !== "production" && env.ENABLE_DEMO_ACCOUNTS === "true";
 }

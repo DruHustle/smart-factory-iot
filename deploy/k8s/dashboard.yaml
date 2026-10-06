@@ -1,0 +1,247 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smart-factory-dashboard
+  labels:
+    app.kubernetes.io/name: smart-factory-dashboard
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: smart-factory-dashboard
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: smart-factory-dashboard
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: smart-factory-dashboard
+      containers:
+        - name: dashboard
+          image: ghcr.io/druhustle/smart-factory-iot:release-placeholder
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "3000"
+            - name: ENABLE_DEMO_ACCOUNTS
+              value: "false"
+            - name: ENABLE_DEMO_DATA
+              value: "false"
+            - name: DATABASE_SSL_MODE
+              value: verify-full
+            - name: DATABASE_CA_CERT
+              valueFrom:
+                secretKeyRef:
+                  name: smart-factory-dashboard-runtime
+                  key: dashboard-database-ca-cert
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: smart-factory-dashboard-runtime
+                  key: dashboard-database-url
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: smart-factory-dashboard-runtime
+                  key: jwt-secret
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: smart-factory-dashboard-runtime
+                  key: redis-url
+            - name: ALLOWED_ORIGIN
+              valueFrom:
+                configMapKeyRef:
+                  name: smart-factory-dashboard
+                  key: allowed-origin
+            - name: TRUST_PROXY
+              valueFrom:
+                configMapKeyRef:
+                  name: smart-factory-dashboard
+                  key: trusted-proxy-addresses
+            - name: INGESTION_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: smart-factory-dashboard-runtime
+                  key: ingestion-api-token
+            - name: AAS_REPOSITORY_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: smart-factory-dashboard
+                  key: aas-repository-url
+            - name: AAS_SUBMODEL_REPOSITORY_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: smart-factory-dashboard
+                  key: aas-submodel-repository-url
+            - name: AAS_CONCEPT_DESCRIPTION_REPOSITORY_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: smart-factory-dashboard
+                  key: aas-concept-description-repository-url
+            - name: AAS_REGISTRY_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: smart-factory-dashboard
+                  key: aas-registry-url
+            - name: AAS_SUBMODEL_REGISTRY_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: smart-factory-dashboard
+                  key: aas-submodel-registry-url
+            - name: AASX_FILE_SERVER_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: smart-factory-dashboard
+                  key: aasx-file-server-url
+            - name: AAS_OIDC_TOKEN_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: smart-factory-dashboard
+                  key: aas-oidc-token-url
+            - name: AAS_OIDC_DISCOVERY_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: smart-factory-dashboard
+                  key: aas-oidc-discovery-url
+            - name: AAS_OIDC_SCOPE
+              valueFrom:
+                configMapKeyRef:
+                  name: smart-factory-dashboard
+                  key: aas-oidc-scope
+            - name: AAS_OIDC_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: smart-factory-dashboard-runtime
+                  key: aas-oidc-client-id
+            - name: AAS_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: smart-factory-dashboard-runtime
+                  key: aas-oidc-client-secret
+            - name: AAS_PROVISIONING_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: smart-factory-dashboard
+                  key: aas-provisioning-api-url
+            - name: AAS_PROVISIONING_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: smart-factory-dashboard-runtime
+                  key: aas-provisioning-token
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: temporary-files
+              mountPath: /tmp
+          startupProbe:
+            exec:
+              command:
+                - node
+                - -e
+                - fetch('http://127.0.0.1:3000/health/live').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command:
+                - node
+                - -e
+                - fetch('http://127.0.0.1:3000/health/live').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))
+            periodSeconds: 20
+            timeoutSeconds: 3
+          readinessProbe:
+            exec:
+              command:
+                - node
+                - -e
+                - fetch('http://127.0.0.1:3000/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))
+            periodSeconds: 10
+            timeoutSeconds: 5
+      volumes:
+        - name: temporary-files
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smart-factory-dashboard
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: smart-factory-dashboard
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: smart-factory-dashboard
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: smart-factory-dashboard
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+        - type: Pods
+          value: 4
+          periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60

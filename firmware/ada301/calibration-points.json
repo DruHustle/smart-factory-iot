@@ -1,0 +1,41 @@
+{
+  "asset": "ADA031 V4 robotic arm",
+  "units": "degrees",
+  "points": {
+    "A": {
+      "status": "user-defined",
+      "description": "User identified the neutral commanded pose as Point A with the claw open.",
+      "commandedPose": {
+        "base": 90,
+        "shoulder": 90,
+        "elbow": 90,
+        "wrist": 90,
+        "gripper": 90
+      },
+      "userConfirmed": true
+    },
+    "B": {
+      "status": "user-defined",
+      "description": "User identified this pose as Point B with the claw open.",
+      "commandedPose": {
+        "base": 180,
+        "shoulder": 180,
+        "elbow": 59,
+        "wrist": 0,
+        "gripper": 57
+      },
+      "potentiometerSnapshot": {
+        "base": 180,
+        "shoulder": 179,
+        "elbow": 60,
+        "wrist": 0,
+        "gripper": 56
+      },
+      "userConfirmed": true,
+      "notes": [
+        "This is the Point B pose chosen by the user.",
+        "Recorded from live telemetry: base 180, shoulder 180, elbow 59, wrist 0, gripper 57 degrees."
+      ]
+    }
+  }
+}

@@ -1,0 +1,56 @@
+# Disposable single-container deployment acceptance test. No .env or live services.
+services:
+  database:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: dashboard }
+    volumes: ["dashboard_test_data:/var/lib/postgresql/data"]
+    healthcheck: { test: [CMD-SHELL, "pg_isready -U postgres -d dashboard"], interval: 2s, timeout: 3s, retries: 30 }
+  backend-database:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: telemetry }
+    volumes: ["backend_test_data:/var/lib/postgresql/data"]
+    healthcheck: { test: [CMD-SHELL, "pg_isready -U postgres -d telemetry"], interval: 2s, timeout: 3s, retries: 30 }
+  redis:
+    image: redis:8.2-alpine
+    healthcheck: { test: [CMD, redis-cli, ping], interval: 2s, timeout: 3s, retries: 30 }
+  broker:
+    image: rabbitmq:4.3.6-management
+    environment: { RABBITMQ_DEFAULT_USER: review, RABBITMQ_DEFAULT_PASS: isolated-review-broker }
+    command: [sh, -c, "rabbitmq-plugins enable --offline rabbitmq_mqtt && rabbitmq-server"]
+    healthcheck: { test: [CMD, rabbitmq-diagnostics, -q, ping], interval: 3s, timeout: 5s, retries: 40 }
+  bundle:
+    image: ${BUNDLE_IMAGE:-smart-factory-render-review:local}
+    environment:
+      NODE_ENV: development
+      ASPNETCORE_ENVIRONMENT: Development
+      DOTNET_ENVIRONMENT: Development
+      PORT: 10000
+      DATABASE_URL: postgres://postgres:postgres@database:5432/dashboard
+      DATABASE_SSL_MODE: disable
+      DATABASE_CA_CERT: development-only-not-a-certificate
+      DEVICE_DATABASE_CONNECTION: Host=backend-database;Database=telemetry;Username=postgres;Password=postgres;SSL Mode=Disable
+      TELEMETRY_DATABASE_CONNECTION: Host=backend-database;Database=telemetry;Username=postgres;Password=postgres;SSL Mode=Disable
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: isolated-bundle-jwt-secret-at-least-32-bytes
+      DASHBOARD_SERVICE_TOKEN: isolated-bundle-service-token-at-least-32-bytes
+      AAS_PROVISIONING_TOKEN: isolated-bundle-provisioner-at-least-32-bytes
+      INGESTION_API_TOKEN: isolated-bundle-ingestion-token-at-least-32-bytes
+      ALLOWED_ORIGIN: http://127.0.0.1:3110
+      AAS_ALLOW_UNAUTHENTICATED_LOCAL: "true"
+      AAS_REPOSITORY_URL: http://127.0.0.1:9
+      MqttBrokerHost: broker
+      MqttBrokerPort: 1883
+      MqttUsername: review
+      MqttPassword: isolated-review-broker
+      MqttUseTls: "false"
+      MqttClientId: bundle-test-telemetry
+      ASSISTANT_PROVIDER: disabled
+    ports: ["127.0.0.1:3110:10000"]
+    depends_on:
+      database: { condition: service_healthy }
+      backend-database: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      broker: { condition: service_healthy }
+volumes:
+  dashboard_test_data:
+  backend_test_data:

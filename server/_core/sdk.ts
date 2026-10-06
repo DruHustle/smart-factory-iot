@@ -1,4 +1,4 @@
-import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+import { COOKIE_NAME } from "@shared/const";
 import { ForbiddenError } from "@shared/_core/errors";
 import { parse as parseCookieHeader } from "cookie";
 import type { Request } from "express";
@@ -31,7 +31,13 @@ class SDKServer {
   }
 
   private getSessionSecret() {
+    if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET must be configured in production");
+    }
     const secret = ENV.cookieSecret || "default-secret-for-local-dev";
+    if (process.env.NODE_ENV === "production" && Buffer.byteLength(secret, "utf8") < 32) {
+      throw new Error("JWT_SECRET must contain at least 32 bytes in production");
+    }
     return new TextEncoder().encode(secret);
   }
 
@@ -67,7 +73,7 @@ class SDKServer {
     options: { expiresInMs?: number } = {}
   ): Promise<string> {
     const issuedAt = Date.now();
-    const expiresInMs = options.expiresInMs ?? ONE_YEAR_MS;
+    const expiresInMs = options.expiresInMs ?? 8 * 60 * 60 * 1000;
     const expirationSeconds = Math.floor((issuedAt + expiresInMs) / 1000);
     const secretKey = this.getSessionSecret();
 
@@ -79,6 +85,9 @@ class SDKServer {
       role: payload.role,
     })
       .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+      .setIssuer("smart-factory-iot")
+      .setAudience("smart-factory-iot-api")
+      .setSubject(payload.openId)
       .setExpirationTime(expirationSeconds)
       .sign(secretKey);
   }
@@ -94,6 +103,8 @@ class SDKServer {
       const secretKey = this.getSessionSecret();
       const { payload } = await jwtVerify(token, secretKey, {
         algorithms: ["HS256"],
+        issuer: "smart-factory-iot",
+        audience: "smart-factory-iot-api",
       });
       const { openId, appId, name, email, role } = payload as Record<string, unknown>;
 
@@ -134,10 +145,6 @@ class SDKServer {
     const session = await this.verifySession(token);
 
     if (!session) {
-      // For local development, if no session, we can return a mock user
-      const defaultUser = await db.getUserByOpenId("anonymous");
-      if (defaultUser) return defaultUser;
-      
       throw ForbiddenError("Invalid or missing authentication");
     }
 

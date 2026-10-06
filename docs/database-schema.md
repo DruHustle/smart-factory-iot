@@ -1,168 +1,110 @@
-# Smart Factory IoT - Database Schema
+# Application Database Schema
 
-This document details the relational database schema for the Smart Factory IoT platform, which uses MySQL (Aiven MySQL) as its primary data store. The schema is designed for high-volume time-series data ingestion, efficient querying, and robust alert management.
-
-## 1. Entity Relationship Diagram (ERD)
-
-The following Mermaid diagram illustrates the relationships between the core entities in the database:
+The dashboard uses PostgreSQL with Drizzle ORM. The source of truth is drizzle/schema.ts; checked-in SQL migrations live in drizzle/.
 
 ```mermaid
 erDiagram
-    USERS ||--o{ DEVICES : manages
-    USERS ||--o{ ALERTS : creates
-    USERS ||--o{ ALERT_THRESHOLDS : sets
-    DEVICES ||--o{ SENSOR_READINGS : generates
-    DEVICES ||--o{ ALERTS : triggers
-    DEVICES ||--o{ OTA_DEPLOYMENTS : receives
-    ALERT_THRESHOLDS ||--o{ ALERTS : triggers
-    OTA_VERSIONS ||--o{ OTA_DEPLOYMENTS : uses
-    
-    USERS {
-        int id PK
-        string openId UK "Microsoft Entra ID"
-        string email UK
-        string password_hash
-        string name
-        string role ENUM("user", "admin")
-        timestamp created_at
-        timestamp updated_at
-        timestamp lastSignedIn
-    }
-    
-    DEVICES {
-        int id PK
-        string deviceId UK
-        string name
-        string type ENUM("sensor", "actuator", "controller", "gateway")
-        string status ENUM("online", "offline", "maintenance", "error")
-        string location
-        string zone
-        string firmwareVersion
-        timestamp lastSeen
-        json metadata
-        timestamp created_at
-        timestamp updated_at
-    }
-    
-    SENSOR_READINGS {
-        int id PK
-        int deviceId FK
-        float temperature
-        float humidity
-        float pressure
-        float vibration
-        float power
-        float rpm
-        bigint timestamp "Recorded time in milliseconds"
-        timestamp createdAt
-    }
-    
-    ALERTS {
-        int id PK
-        int deviceId FK
-        string type ENUM("threshold_exceeded", "device_offline", "firmware_update", "maintenance_required", "system_error")
-        string severity ENUM("info", "warning", "critical")
-        string metric
-        float value
-        float threshold
-        text message
-        string status ENUM("active", "acknowledged", "resolved")
-        int acknowledgedBy FK "User ID"
-        timestamp acknowledgedAt
-        timestamp resolvedAt
-        timestamp createdAt
-        timestamp updatedAt
-    }
-    
-    ALERT_THRESHOLDS {
-        int id PK
-        int deviceId FK
-        string metric ENUM("temperature", "humidity", "vibration", "power", "pressure", "rpm")
-        float minValue
-        float maxValue
-        float warningMin
-        float warningMax
-        boolean enabled
-        timestamp createdAt
-        timestamp updatedAt
-    }
-    
-    OTA_VERSIONS {
-        int id PK
-        string version UK
-        string deviceType ENUM("sensor", "actuator", "controller", "gateway")
-        text releaseNotes
-        string fileUrl
-        int fileSize
-        string checksum
-        boolean isStable
-        timestamp createdAt
-    }
-    
-    OTA_DEPLOYMENTS {
-        int id PK
-        int deviceId FK
-        int firmwareVersionId FK
-        string previousVersion
-        string status ENUM("pending", "downloading", "installing", "completed", "failed", "rolled_back")
-        int progress
-        text errorMessage
-        timestamp startedAt
-        timestamp completedAt
-        timestamp createdAt
-        timestamp updatedAt
-    }
+  USERS ||--o{ ASSET_LIFECYCLE_EVENTS : records
+  ASSETS ||--o{ ASSET_VERSIONS : snapshots
+  ASSETS ||--o{ ASSET_DEVICES : connected_through
+  DEVICES ||--o{ ASSET_DEVICES : gateways
+  DEVICES ||--o{ SENSOR_READINGS : reports
+  USERS {
+    int id PK
+    string email
+    string password
+    string role
+  }
+  ASSETS {
+    int id PK
+    string assetId
+    string name
+    string lifecycleStage
+    int aasVersion
+    json aasShell
+    json aasSubmodels
+    boolean isDemo
+  }
+  ASSET_DEVICES {
+    int id PK
+    int assetId
+    int deviceId
+    string protocol
+    string endpoint
+    json tagMappings
+  }
+  ASSET_LIFECYCLE_EVENTS {
+    int id PK
+    int assetId
+    int changedBy
+    string toStage
+  }
+  ASSET_VERSIONS {
+    int id PK
+    int assetId
+    int version
+    int changedBy
+    string sha256
+    json snapshot
+  }
+  LOGIN_RATE_LIMITS {
+    string keyHash PK
+    int attempts
+    timestamp resetAt
+  }
+  DEVICES {
+    int id PK
+    string deviceId
+    string type
+    string status
+  }
+  SENSOR_READINGS {
+    int id PK
+    int deviceId
+    string assetId
+    string ingestionId
+    json assetSignals
+    float temperature
+    float vibration
+    bigint timestamp
+  }
 ```
 
-## 2. Core Table Specifications
+## Incident response and downtime records
 
-The following tables are central to the application's operation.
+```mermaid
+flowchart LR
+  Users[users<br/>id PK] -->|assignedToId / resolvedById| Alerts[alerts<br/>id PK<br/>deviceId<br/>errorCode<br/>status<br/>downtimeStartedAt<br/>resolvedAt]
+  Devices[devices<br/>id PK] -->|deviceId| Alerts
+  Devices -->|deviceId| Thresholds[alert_thresholds<br/>id PK<br/>metric<br/>warning and critical limits]
+```
 
-| Table | Description | Key Columns |
-| :--- | :--- | :--- |
-| **USERS** | Stores user accounts, integrated with Microsoft Entra ID for authentication. | `id`, `openId`, `email`, `password_hash`, `role` |
-| **DEVICES** | Represents registered IoT devices, including type, status, and location metadata. | `id`, `deviceId`, `name`, `type`, `status`, `zone` |
-| **SENSOR_READINGS** | High-volume time-series data for various sensor metrics. Optimized for fast writes and range queries. | `id`, `deviceId`, `timestamp`, `temperature`, `power` |
-| **ALERTS** | Records system alerts triggered by threshold violations or device status changes. | `id`, `deviceId`, `type`, `severity`, `status` |
-| **ALERT_THRESHOLDS** | Configuration for custom alert rules per device and metric. | `id`, `deviceId`, `metric`, `minValue`, `maxValue` |
-| **OTA_VERSIONS** | Manages available firmware versions for Over-The-Air (OTA) updates. | `id`, `version`, `deviceType`, `isStable` |
-| **OTA_DEPLOYMENTS** | Tracks the status and history of firmware deployments to devices. | `id`, `deviceId`, `firmwareVersionId`, `status` |
+Threshold-generated incidents use stable `SF-*` platform classifications. A vendor diagnostic code is stored as supplied when available. The engineer role provides technician assignment and resolution permissions; downtime is explicitly confirmed by the assigned engineer or administrator. A lost device connection does not automatically prove a factory outage. Existing records inferred by migration 0010 need operational review before use in downtime KPIs. Mean downtime-to-resolution uses only records with both downtime and resolution timestamps.
 
-## 3. Indexing and Performance Strategy
+| Table | Purpose |
+|---|---|
+| users | Local identity, bcrypt password hash in `password`, role, and sign-in timestamps. Never expose the hash in API responses. |
+| devices | Edge devices/gateways, status, location, firmware, and simulator marker. |
+| assets | Equipment identity, manufacturer name/designation, separate required postal fields, article and order codes, optional serial/rated values, lifecycle, current AAS JSON, monotonic AAS revision, and simulator marker. |
+| asset_devices | Asset-to-gateway protocol, endpoint, and tag/register mappings. Store credentials on the edge gateway, not in mappings. |
+| asset_lifecycle_events | Actor, transition, timestamp, and engineering note audit history. |
+| asset_versions | Append-only AAS snapshots keyed by asset and revision, with change note, actor, and SHA-256 integrity digest. Migration baseline rows have no digest because prior revisions were not recorded. |
+| login_rate_limits | Hashed IP/email identifiers, fixed-window counters, and expiration timestamps shared across application replicas. |
+| sensor_readings | Nullable measurements, AAS asset attribution, named signals, Unix epoch millisecond timestamps, and a unique ingestion digest for retry deduplication. Indexes cover asset/date and device/date queries. |
+| alerts | Stable platform/vendor error code, severity/status, metric observation, acknowledging actor/time, assigned engineer/time, confirmed downtime start, resolving actor/time, and lifecycle timestamps. Per-source transaction locks deduplicate threshold incidents by device/asset/metric; query indexes cover status/date and assignee/status. |
+| alert_thresholds | Enabled per-device warning and critical bands used to classify telemetry into incidents. |
+| firmware_versions, ota_deployments | Firmware catalog metadata and legacy rollout rows. OTA is disabled; a rollout row is not proof that a device downloaded, verified, installed, or booted a release. |
 
-The database is optimized for time-series and real-time monitoring workloads.
+Connection and lifecycle ids are application-level relationships, not database-enforced foreign keys in the current schema. The external AAS service owns separate storage. Demo rows are marked isDemo and are API-seeded only when demo data is enabled and no real assets exist.
 
-### Indexing Strategy
+Review migration SQL before applying changes. Set DATABASE_URL to the intended database before running pnpm db:migrate. pnpm e2e uses its own disposable PostgreSQL container.
 
-- **Primary Indexes**: Primary keys (`id`) on all tables for fast lookups.
-- **Foreign Key Indexes**: Indexes on all foreign key columns to optimize join operations.
-- **Time-Series Indexing**: A composite index on `(deviceId, timestamp)` in `SENSOR_READINGS` is crucial for efficient time-range queries for a specific device.
-- **Filtering Indexes**: Indexes on `(status, severity)` in `ALERTS` and `(deviceId, status)` in `OTA_DEPLOYMENTS` to support dashboard filtering.
+## Durable incident notifications
 
-### Query Patterns
+Migration `0013_incident_notifications` adds `notification_inbox` and an alert trigger. In the alert transaction, new warning/critical incidents and critical escalations notify current engineers/admins; assignment changes notify new/previous assignees and admins; resolution notifies the assigned technician/admins. The trigger does not backfill historical incidents or emit duplicate messages on unrelated incident updates.
 
-| Query Type | Purpose | Example Query |
-| :--- | :--- | :--- |
-| **Real-time Data** | Retrieve the latest sensor data for a device. | `SELECT * FROM SENSOR_READINGS WHERE deviceId = ? ORDER BY timestamp DESC LIMIT 1;` |
-| **Historical Data** | Retrieve a time-series window of data. | `SELECT * FROM SENSOR_READINGS WHERE deviceId = ? AND timestamp BETWEEN ? AND ? ORDER BY timestamp ASC;` |
-| **Active Alerts** | Get all currently active critical alerts. | `SELECT * FROM ALERTS WHERE status = 'active' AND severity = 'critical';` |
-| **Device Status** | Get a count of devices by their current status. | `SELECT status, COUNT(*) FROM DEVICES GROUP BY status;` |
+Each row belongs to one account, links to its alert and retains title/body, read time, email status, attempts, next attempt time, safe error summary and Graph acceptance time. Foreign-key cascades remove its rows when the associated account/alert is deleted. The delivery worker atomically claims due rows using a two-minute lease and retries after a crash. `accepted` means the Graph request was accepted, not that the email reached a mailbox. Eight failed attempts become `failed`; an authorized owner may retry after correcting configuration. `unconfigured` and `no_recipient` remain visible.
 
-### Caching Strategy
+The inbox is queryable only by its owner. Reads do not acknowledge/resolve the factory incident. Graph credentials and recipient domain policy are runtime secrets/configuration, not editable browser notification settings. Plan retention/archive policies for both telemetry and inbox history before long-term production operation.
 
-The system utilizes Azure Redis Cache to improve read performance and reduce database load:
-- **Alert Thresholds**: Frequently accessed thresholds are cached.
-- **Device Metadata**: Static device information is cached.
-- **User Permissions**: User roles and access rights are cached upon login.
-- **Cache Invalidation**: The cache is programmatically invalidated upon any update to the underlying data.
-
-## 4. Data Retention Policy
-
-To manage the high volume of time-series data, a clear retention policy is enforced:
-
-| Table | Retention Period | Action |
-| :--- | :--- | :--- |
-| **SENSOR_READINGS** | 90 days | Archive to Azure Blob Storage for cold storage. |
-| **ALERTS** | 1 year | Archive to Azure Blob Storage. |
-| **OTA_DEPLOYMENTS** | 1 year | Archive to Azure Blob Storage. |
-| **USERS, DEVICES, THRESHOLDS, VERSIONS** | Indefinite | Retained for system integrity. |
+Migration `0014_account_email_identity` adds a case-insensitive unique email index. Null emails remain allowed for legacy identity records. Existing duplicate case-folded email addresses must be reconciled by an administrator before migration. Production self-registration is closed; further accounts are created by an authenticated administrator after private first-admin bootstrap. Passwords are never included in account API responses.

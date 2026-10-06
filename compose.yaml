@@ -1,0 +1,243 @@
+name: smart-factory-iot
+services:
+  database:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smart_factory_iot
+      POSTGRES_USER: smartfactory_local
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?Set a unique local database password}
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks: [default, shared]
+    volumes:
+      - dashboard_database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartfactory_local -d smart_factory_iot"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  redis:
+    image: redis:8.2-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?Set a unique Redis password}"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set a unique Redis password}
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - dashboard_redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks: [default, shared]
+
+  aas-database:
+    profiles: [aas]
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: basyx
+      POSTGRES_USER: basyx
+      POSTGRES_PASSWORD: ${BASYX_DB_PASSWORD:?Set a unique local BaSyx database password}
+    volumes:
+      - aas_database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U basyx -d basyx"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks: [aas-internal]
+
+  basyx-configuration:
+    profiles: [aas]
+    image: eclipsebasyx/basyxconfigurationservice-go:1.1.0
+    restart: "no"
+    environment: &basyx-database-environment
+      POSTGRES_HOST: aas-database
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: basyx
+      POSTGRES_PASSWORD: ${BASYX_DB_PASSWORD:?Set a unique local BaSyx database password}
+      POSTGRES_DBNAME: basyx
+      POSTGRES_SSLMODE: disable
+      POSTGRES_MAXOPENCONNECTIONS: 30
+      POSTGRES_MAXIDLECONNECTIONS: 10
+    depends_on:
+      aas-database:
+        condition: service_healthy
+    networks: [aas-internal]
+
+  aas-repository:
+    profiles: [aas]
+    image: eclipsebasyx/aasrepository-go:1.1.0
+    restart: unless-stopped
+    environment:
+      <<: *basyx-database-environment
+      SERVER_PORT: 8081
+      ABAC_ENABLED: "false"
+      GENERAL_AASREGISTRYINTEGRATION: "true"
+      GENERAL_EXTERNALURL: http://aas-repository:8081
+    ports: ["127.0.0.1:8081:8081"]
+    depends_on:
+      basyx-configuration:
+        condition: service_completed_successfully
+    networks: [aas-internal, shared]
+
+  aas-registry:
+    profiles: [aas]
+    image: eclipsebasyx/aasregistry-go:1.1.0
+    restart: unless-stopped
+    environment:
+      <<: *basyx-database-environment
+      SERVER_PORT: 8082
+      ABAC_ENABLED: "false"
+    ports: ["127.0.0.1:8082:8082"]
+    depends_on:
+      basyx-configuration:
+        condition: service_completed_successfully
+    networks: [aas-internal, shared]
+
+  submodel-repository:
+    profiles: [aas]
+    image: eclipsebasyx/submodelrepository-go:1.1.0
+    restart: unless-stopped
+    environment:
+      <<: *basyx-database-environment
+      SERVER_PORT: 8083
+      ABAC_ENABLED: "false"
+      GENERAL_SUBMODELREGISTRYINTEGRATION: "true"
+      GENERAL_EXTERNALURL: http://submodel-repository:8083
+    ports: ["127.0.0.1:8083:8083"]
+    depends_on:
+      basyx-configuration:
+        condition: service_completed_successfully
+    networks: [aas-internal, shared]
+
+  submodel-registry:
+    profiles: [aas]
+    image: eclipsebasyx/submodelregistry-go:1.1.0
+    restart: unless-stopped
+    environment:
+      <<: *basyx-database-environment
+      SERVER_PORT: 8084
+      ABAC_ENABLED: "false"
+    ports: ["127.0.0.1:8084:8084"]
+    depends_on:
+      basyx-configuration:
+        condition: service_completed_successfully
+    networks: [aas-internal, shared]
+
+  concept-description-repository:
+    profiles: [aas]
+    image: eclipsebasyx/conceptdescriptionrepository-go:1.1.0
+    restart: unless-stopped
+    environment:
+      <<: *basyx-database-environment
+      SERVER_PORT: 8085
+      ABAC_ENABLED: "false"
+    ports: ["127.0.0.1:8085:8085"]
+    depends_on:
+      basyx-configuration:
+        condition: service_completed_successfully
+    networks: [aas-internal, shared]
+
+  aasx-file-server:
+    profiles: [aas]
+    image: eclipsebasyx/aasxfileserver-go:1.1.0
+    restart: unless-stopped
+    environment:
+      <<: *basyx-database-environment
+      SERVER_PORT: 8086
+      ABAC_ENABLED: "false"
+    ports: ["127.0.0.1:8086:8086"]
+    depends_on:
+      basyx-configuration:
+        condition: service_completed_successfully
+    networks: [aas-internal, shared]
+
+  dashboard:
+    build:
+      context: .
+      target: development
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      BACKEND_DEPLOYMENT_MODE: ${BACKEND_DEPLOYMENT_MODE:-standalone}
+      DASHBOARD_SERVICE_TOKEN: ${DASHBOARD_SERVICE_TOKEN:-}
+      PORT: 3000
+      VITE_API_URL: ${VITE_API_URL:-/api}
+      DATABASE_URL: postgres://smartfactory_local:${DATABASE_PASSWORD}@database:5432/smart_factory_iot
+      DATABASE_SSL_MODE: disable
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      JWT_SECRET: ${JWT_SECRET:?Set a unique 32-byte-or-longer session secret}
+      ALLOWED_ORIGIN: ${ALLOWED_ORIGIN:-http://localhost:3000}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      ENABLE_DEMO_ACCOUNTS: ${ENABLE_DEMO_ACCOUNTS:-true}
+      ENABLE_DEMO_DATA: ${ENABLE_DEMO_DATA:-true}
+      INGESTION_API_TOKEN: ${INGESTION_API_TOKEN:-}
+      AAS_REPOSITORY_URL: ${AAS_REPOSITORY_URL:-http://aas-repository:8081}
+      AAS_REPO_URL: ${AAS_REPO_URL:-}
+      AAS_SUBMODEL_REPOSITORY_URL: ${AAS_SUBMODEL_REPOSITORY_URL:-http://submodel-repository:8083}
+      AAS_CONCEPT_DESCRIPTION_REPOSITORY_URL: ${AAS_CONCEPT_DESCRIPTION_REPOSITORY_URL:-http://concept-description-repository:8085}
+      AAS_REGISTRY_URL: ${AAS_REGISTRY_URL:-http://aas-registry:8082}
+      AAS_SUBMODEL_REGISTRY_URL: ${AAS_SUBMODEL_REGISTRY_URL:-http://submodel-registry:8084}
+      AASX_FILE_SERVER_URL: ${AASX_FILE_SERVER_URL:-http://aasx-file-server:8086}
+      AAS_ALLOW_UNAUTHENTICATED_LOCAL: ${AAS_ALLOW_UNAUTHENTICATED_LOCAL:-true}
+      AAS_OIDC_TOKEN_URL: ${AAS_OIDC_TOKEN_URL:-}
+      AAS_OIDC_DISCOVERY_URL: ${AAS_OIDC_DISCOVERY_URL:-}
+      AAS_OIDC_SCOPE: ${AAS_OIDC_SCOPE:-}
+      AAS_OIDC_CLIENT_ID: ${AAS_OIDC_CLIENT_ID:-}
+      AAS_OIDC_CLIENT_SECRET: ${AAS_OIDC_CLIENT_SECRET:-}
+      AAS_PROVISIONING_API_URL: ${AAS_PROVISIONING_API_URL:-http://device-service:8080/api/assets}
+      AAS_PROVISIONING_TOKEN: ${AAS_PROVISIONING_TOKEN:-}
+      ASSISTANT_PROVIDER: ${ASSISTANT_PROVIDER:-openai_compatible}
+      ASSISTANT_INCLUDE_LIVE_CONTEXT: ${ASSISTANT_INCLUDE_LIVE_CONTEXT:-true}
+      ASSISTANT_GEMINI_MODEL: ${ASSISTANT_GEMINI_MODEL:-gemini-3.8-flash}
+      ASSISTANT_GEMINI_FALLBACK_MODEL: ${ASSISTANT_GEMINI_FALLBACK_MODEL:-gemini-2.5-flash}
+      ASSISTANT_GEMINI_MODEL_CANDIDATES: ${ASSISTANT_GEMINI_MODEL_CANDIDATES:-gemini-3.8-flash,gemini-2.5-flash}
+      ASSISTANT_GEMINI_BASE_URL: ${ASSISTANT_GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai}
+      ASSISTANT_GEMINI_API_KEY: ${ASSISTANT_GEMINI_API_KEY:-}
+      ASSISTANT_GROQ_MODEL: ${ASSISTANT_GROQ_MODEL:-openai/gpt-oss-120b}
+      ASSISTANT_GROQ_FALLBACK_MODEL: ${ASSISTANT_GROQ_FALLBACK_MODEL:-openai/gpt-oss-20b}
+      ASSISTANT_GROQ_MODEL_CANDIDATES: ${ASSISTANT_GROQ_MODEL_CANDIDATES:-openai/gpt-oss-120b,openai/gpt-oss-20b}
+      ASSISTANT_GROQ_BASE_URL: ${ASSISTANT_GROQ_BASE_URL:-https://api.groq.com/openai/v1}
+      ASSISTANT_GROQ_API_KEY: ${ASSISTANT_GROQ_API_KEY:-}
+      # Compatibility for existing local env files that used the misspelled GROK prefix.
+      ASSISTANT_GROK_MODEL: ${ASSISTANT_GROK_MODEL:-}
+      ASSISTANT_GROK_FALLBACK_MODEL: ${ASSISTANT_GROK_FALLBACK_MODEL:-}
+      ASSISTANT_GROK_MODEL_CANDIDATES: ${ASSISTANT_GROK_MODEL_CANDIDATES:-}
+      ASSISTANT_GROK_AI_BASE_URL: ${ASSISTANT_GROK_AI_BASE_URL:-}
+      ASSISTANT_GROK_AI_API_KEY: ${ASSISTANT_GROK_AI_API_KEY:-}
+    networks: [default, shared]
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    expose:
+      - "3000"
+
+  proxy:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      - dashboard
+    ports:
+      - "127.0.0.1:3000:80"
+    volumes:
+      - ./deploy/compose/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks: [shared]
+
+volumes:
+  dashboard_database:
+  dashboard_redis:
+  aas_database:
+
+networks:
+  aas-internal:
+    internal: true
+  shared:
+    name: smart-factory-iot-shared

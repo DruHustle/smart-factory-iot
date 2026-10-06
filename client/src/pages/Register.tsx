@@ -5,7 +5,7 @@
  */
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Factory, Lock, Mail, User, Eye, EyeOff } from "lucide-react";
@@ -13,8 +13,10 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+import { trpc } from "@/lib/trpc";
 
 export default function Register() {
+  const policy = trpc.auth.registrationPolicy.useQuery();
   const { register } = useAuth();
   const [, navigate] = useLocation();
   const [email, setEmail] = useState("");
@@ -42,8 +44,11 @@ export default function Register() {
     }
   };
 
+  if (policy.isLoading) return <div role="status" className="p-8">Checking account registration…</div>;
+  if (!policy.data?.enabled) return <main className="mx-auto my-16 max-w-md"><Card><CardHeader><h1 className="text-2xl font-semibold">Account access</h1></CardHeader><CardContent className="space-y-4"><p>{policy.error ? "Unable to check account registration. Try again shortly." : "Ask your factory administrator to create your account."}</p><Button onClick={() => navigate("/login")}>Back to login</Button></CardContent></Card></main>;
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[url('/images/industrial-blur-bg.jpg')] bg-cover bg-center relative">
+    <main className="relative flex min-h-screen items-center justify-center bg-[url('/images/industrial-blur-bg.webp')] bg-cover bg-center p-4 sm:p-6">
       {/* Dark Overlay - Matches Login Page */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
@@ -58,9 +63,9 @@ export default function Register() {
           </div>
 
           {/* Title */}
-          <CardTitle className="text-2xl font-bold tracking-wide">
+          <h1 className="text-2xl font-bold tracking-wide">
             Create Account
-          </CardTitle>
+          </h1>
 
           {/* Subtitle */}
           <CardDescription className="text-muted-foreground">
@@ -82,6 +87,7 @@ export default function Register() {
                 <Input
                   id="name"
                   type="text"
+                  autoComplete="name"
                   placeholder="Enter your full name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -101,6 +107,7 @@ export default function Register() {
                 <Input
                   id="email"
                   type="email"
+                  autoComplete="email"
                   placeholder="name@factory.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -120,14 +127,18 @@ export default function Register() {
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
                   placeholder="Create a secure password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 pr-10 bg-background/50 border-white/20 focus:border-primary"
+                  minLength={12}
                   required
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
@@ -138,6 +149,7 @@ export default function Register() {
                   )}
                 </button>
               </div>
+              <p className="text-xs text-muted-foreground">Use at least 12 characters. Passwords are limited to 72 UTF-8 bytes.</p>
             </div>
 
             {/* Register Button - Matches Login Page Primary Glow */}
@@ -168,6 +180,6 @@ export default function Register() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

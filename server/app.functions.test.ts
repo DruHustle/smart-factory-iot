@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { TrpcContext } from "./_core/context";
 import { appRouter } from "./routers";
@@ -10,9 +11,16 @@ type CookieCall = {
   options?: Record<string, unknown>;
 };
 
+// Database-backed integration tests only run against an explicitly supplied test DB.
+// Never fall back to DATABASE_URL from .env (which may point at a shared environment).
+const testDatabaseUrl = process.env.TEST_DATABASE_URL;
+if (testDatabaseUrl) process.env.DATABASE_URL = testDatabaseUrl;
+const databaseDescribe = testDatabaseUrl ? describe : describe.skip;
+let testAdminId = 0;
+
 function createContext(opts?: {
   authenticated?: boolean;
-  role?: "user" | "admin";
+  role?: "user" | "viewer" | "operator" | "engineer" | "admin";
 }): { ctx: TrpcContext; cookieCalls: CookieCall[]; clearedCookies: CookieCall[] } {
   const cookieCalls: CookieCall[] = [];
   const clearedCookies: CookieCall[] = [];
@@ -20,7 +28,7 @@ function createContext(opts?: {
   const user =
     opts?.authenticated
       ? {
-          id: 1,
+          id: testAdminId,
           openId: "test-admin",
           email: "admin@test.local",
           name: "Test Admin",
@@ -52,53 +60,56 @@ function createContext(opts?: {
 }
 
 let testDeviceId = 0;
+let testDeviceExternalId = "";
 let testFirmwareId = 0;
-let testDeploymentId = 0;
+let existingOtaDeploymentCount = 0;
 let testAlertId = 0;
 
-beforeAll(async () => {
-  const unique = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-  const { ctx } = createContext({ authenticated: true, role: "admin" });
-  const caller = appRouter.createCaller(ctx);
+databaseDescribe("App Function Coverage (explicit TEST_DATABASE_URL)", () => {
+  beforeAll(async () => {
+    const unique = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+    const admin = await db.createUser({ openId: `test-admin-${unique}`, email: `admin-${unique}@test.local`, name: "Test Admin", role: "admin" });
+    testAdminId = admin!.id;
+    const { ctx } = createContext({ authenticated: true, role: "admin" });
+    const caller = appRouter.createCaller(ctx);
 
-  const createdDevice = await caller.devices.create({
-    deviceId: `e2e-device-${unique}`,
-    name: "E2E Device",
-    type: "sensor",
-    status: "online",
-    location: "Factory A",
-    zone: "Zone A",
+    testDeviceExternalId = `e2e-device-${unique}`;
+    const createdDevice = await caller.devices.create({
+      deviceId: testDeviceExternalId,
+      name: "E2E Device",
+      status: "online",
+      location: "Factory A",
+      zone: "Zone A",
+    });
+    testDeviceId = createdDevice.id;
+
+    await caller.readings.create({
+      deviceId: createdDevice.id,
+      temperature: 33,
+      timestamp: Date.now(),
+    });
+
+    const fw = await db.createFirmwareVersion({
+      version: `v-e2e-${unique}`,
+      deviceType: "sensor",
+      releaseNotes: "Integration test release",
+      isStable: true,
+    });
+    testFirmwareId = fw.id;
+    existingOtaDeploymentCount = (await db.getOtaDeployments()).length;
+
+    const createdAlert = await db.createAlert({
+      deviceId: createdDevice.id,
+      type: "threshold_exceeded",
+      severity: "warning",
+      metric: "temperature",
+      value: 33,
+      threshold: 30,
+      message: "Temperature warning",
+      status: "active",
+    });
+    testAlertId = createdAlert.id;
   });
-  testDeviceId = createdDevice.id;
-
-  await caller.readings.create({
-    deviceId: createdDevice.id,
-    temperature: 33,
-    timestamp: Date.now(),
-  });
-
-  const fw = await db.createFirmwareVersion({
-    version: `v-e2e-${unique}`,
-    deviceType: "sensor",
-    releaseNotes: "Integration test release",
-    isStable: true,
-  });
-  testFirmwareId = fw.id;
-
-  const createdAlert = await db.createAlert({
-    deviceId: createdDevice.id,
-    type: "threshold_exceeded",
-    severity: "warning",
-    metric: "temperature",
-    value: 33,
-    threshold: 30,
-    message: "Temperature warning",
-    status: "active",
-  });
-  testAlertId = createdAlert.id;
-});
-
-describe("App Function Coverage", () => {
   it("covers system procedures", async () => {
     const { ctx } = createContext({ authenticated: true, role: "admin" });
     const caller = appRouter.createCaller(ctx);
@@ -127,7 +138,9 @@ describe("App Function Coverage", () => {
     });
 
     expect(registered.user?.email).toBe(email);
-    expect(typeof registered.token).toBe("string");
+    expect(typeof registration.cookieCalls[0]?.value).toBe("string");
+    expect(registered.user?.role).toBe("viewer");
+    expect(registered.user && "password" in registered.user).toBe(false);
     expect(registration.cookieCalls.length).toBeGreaterThan(0);
 
     const loginContext = createContext({ authenticated: false });
@@ -135,7 +148,7 @@ describe("App Function Coverage", () => {
     const loginResult = await loginCaller.auth.login({ email, password });
 
     expect(loginResult.user?.email).toBe(email);
-    expect(typeof loginResult.token).toBe("string");
+    expect(typeof loginContext.cookieCalls[0]?.value).toBe("string");
     expect(loginContext.cookieCalls.length).toBeGreaterThan(0);
 
     const meContext = createContext({ authenticated: true, role: "user" });
@@ -176,6 +189,8 @@ describe("App Function Coverage", () => {
     });
     expect(thresholds.length).toBeGreaterThan(0);
 
+    await db.ingestTelemetryByDeviceId({ deviceId: testDeviceExternalId, temperature: 70, timestamp: Date.now() });
+
     const readings = await caller.readings.getForDevice({
       deviceId: testDeviceId,
       startTime: Date.now() - 1000 * 60 * 60,
@@ -192,23 +207,20 @@ describe("App Function Coverage", () => {
       status: "acknowledged",
     });
     expect(alertStatusUpdated?.status).toBe("acknowledged");
+    expect(alertStatusUpdated?.severity).toBe("critical");
+    expect(alertStatusUpdated?.errorCode).toBe("SF-THR-TEMP-CRIT");
 
-    const updatedAlert = await caller.alerts.update({
-      id: testAlertId,
-      status: "resolved",
-      acknowledgedBy: 1,
-    });
+    const downtimeStarted = await caller.alerts.startDowntime({ id: testAlertId });
+    expect(downtimeStarted?.downtimeStartedAt).toBeInstanceOf(Date);
+    const updatedAlert = await caller.alerts.resolve({ id: testAlertId });
     expect(updatedAlert?.status).toBe("resolved");
 
-    const deployed = await caller.ota.deploy({
+    await expect(caller.ota.deploy({
       deviceId: testDeviceId,
       firmwareVersionId: testFirmwareId,
-    });
-    testDeploymentId = deployed.id;
-    expect(deployed.status).toBe("pending");
-
-    const rolledBack = await caller.ota.rollback({ deploymentId: testDeploymentId });
-    expect(rolledBack.success).toBe(true);
+    })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    await expect(caller.ota.rollback({ deploymentId: 999999 })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    expect(await db.getOtaDeployments()).toHaveLength(existingOtaDeploymentCount);
   });
 
   it("covers analytics/export/firmware/notifications/groups procedures", async () => {
@@ -217,6 +229,8 @@ describe("App Function Coverage", () => {
 
     const overview = await caller.analytics.getOverview();
     expect(overview.devices.total).toBeGreaterThanOrEqual(0);
+    expect(overview.alerts.resolvedDowntimeCount).toBeGreaterThan(0);
+    expect(overview.alerts.averageDowntimeToResolutionSeconds).toBeGreaterThanOrEqual(0);
 
     const startTime = Date.now() - 1000 * 60 * 60 * 24;
     const endTime = Date.now();
@@ -227,19 +241,35 @@ describe("App Function Coverage", () => {
     const energyConsumption = await caller.analytics.getEnergyConsumption({ startTime, endTime });
     expect(Array.isArray(energyConsumption)).toBe(true);
 
-    const oee = await caller.analytics.getOEEMetrics();
-    expect(typeof oee.oee).toBe("number");
+    const assetTelemetryInput = {
+      assetIds: ["urn:test:asset:compressor"],
+      startTime,
+      endTime,
+      intervalMs: 60_000,
+    };
+    const assetTelemetry = await caller.analytics.getAssetTelemetry(assetTelemetryInput);
+    expect(Array.isArray(assetTelemetry.assets)).toBe(true);
+    expect(Array.isArray(assetTelemetry.timeline)).toBe(true);
+    expect(assetTelemetry.overall).toHaveProperty("peakVibration");
+    expect(assetTelemetry.overall).toHaveProperty("peakRpm");
+    expect(assetTelemetry.overall).toHaveProperty("avgPressure");
+    expect(assetTelemetry.overall).toHaveProperty("alerts.activeCritical");
+    for (const asset of assetTelemetry.assets) {
+      expect(asset).toHaveProperty("trends.temperature");
+      expect(asset).toHaveProperty("trends.vibration");
+      expect(asset).toHaveProperty("alerts.eventsInPeriod");
+    }
 
     const firmwareList = await caller.firmware.list({ deviceType: "sensor" });
     expect(Array.isArray(firmwareList)).toBe(true);
 
     const deploys = await caller.ota.list({ deviceId: testDeviceId, limit: 10 });
-    expect(deploys.some((d) => d.id === testDeploymentId)).toBe(true);
+    expect(deploys).toHaveLength(existingOtaDeploymentCount);
 
     const deviceReport = await caller.export.deviceReport({ deviceId: testDeviceId, startTime, endTime });
     expect(deviceReport.filename).toContain("device-report-");
 
-    const analyticsReport = await caller.export.analyticsReport({ startTime, endTime });
+    const analyticsReport = await caller.export.analyticsReport(assetTelemetryInput);
     expect(analyticsReport.filename).toContain("analytics-report-");
 
     const alertHistory = await caller.export.alertHistoryReport({
@@ -248,26 +278,18 @@ describe("App Function Coverage", () => {
       severity: "warning",
     });
     expect(alertHistory.filename).toContain("alert-history-report-");
+    expect(alertHistory.html).toContain("Error code");
+    expect(alertHistory.html).toContain("Downtime");
 
     const configs = await caller.notifications.getConfigs();
     expect(Array.isArray(configs)).toBe(true);
 
-    const notificationUpdate = await caller.notifications.updateConfig({
+    await expect(caller.notifications.updateConfig({
       configId: "missing-config",
       enabled: true,
       recipient: "owner@test.local",
-    });
-    expect(notificationUpdate.success).toBe(true);
+    })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
 
-    const group = await caller.groups.create({
-      name: "E2E Group",
-      type: "custom",
-      deviceIds: [testDeviceId],
-    });
-    expect(group.deviceIds).toContain(testDeviceId);
-
-    const groups = await caller.groups.list();
-    expect(groups.some((g) => g.id === group.id)).toBe(true);
   });
 
   it("covers auth helper functions", async () => {
@@ -283,5 +305,15 @@ describe("App Function Coverage", () => {
       role: "user",
     });
     expect(typeof sessionToken).toBe("string");
+  });
+
+  it("shares login throttle counters through PostgreSQL", async () => {
+    const keyHash = createHash("sha256").update(randomUUID()).digest("hex");
+    const first = await db.recordLoginAttempt(keyHash, 60_000);
+    const second = await db.recordLoginAttempt(keyHash, 60_000);
+
+    expect(first.attempts).toBe(1);
+    expect(second.attempts).toBe(2);
+    await db.pruneExpiredLoginAttempts(new Date(Date.now() + 61_000));
   });
 });

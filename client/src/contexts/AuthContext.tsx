@@ -4,15 +4,12 @@ import {
   register as apiRegister,
   logout as apiLogout,
   getCurrentUser,
-  getAuthToken,
-  setAuthToken,
-  clearAuthToken,
 } from "@/lib/api-auth";
-import { mockLogin, mockRegister, mockGetCurrentUser } from "@/lib/mock-auth";
 import type { User } from "../../../drizzle/schema";
+type PublicUser = Omit<User, "password">;
 
 interface AuthContextType {
-  user: User | null;
+  user: PublicUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -23,39 +20,17 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<PublicUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const initializeAuth = async () => {
-      const token = getAuthToken();
-
-      if (!token) {
-        setUser(null);
-        setIsLoading(false);
-        return;
-      }
-
       try {
-        // 1. Check if the existing session is a Mock session
-        if (token.startsWith('mock_')) {
-          const result = await mockGetCurrentUser(token);
-          if (result.success && result.user) {
-            setUser(result.user);
-          } else {
-            clearAuthToken();
-            setUser(null);
-          }
-        } 
-        // 2. Otherwise, attempt to validate token with Render Backend
-        else {
-          const result = await getCurrentUser();
-          if (result.success && result.user) {
-            setUser(result.user);
-          } else {
-            clearAuthToken();
-            setUser(null);
-          }
+        const result = await getCurrentUser();
+        if (result.success && result.user) {
+          setUser(result.user);
+        } else {
+          setUser(null);
         }
       } catch (error) {
         console.error("Auth initialization failed:", error);
@@ -70,21 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      // Define demo accounts criteria
-      const isDemoAccount = email.endsWith('@dev.local') || email === 'admin@demo.com';
-
-      let result;
-      if (isDemoAccount) {
-        // Use local Mock Auth for demo accounts
-        result = await mockLogin(email, password);
-        if (result.success && result.token) {
-          setAuthToken(result.token); // Should be prefixed with 'mock_'
-        }
-      } else {
-        // Use Render Backend for all other accounts
-        result = await apiLogin(email, password);
-        // apiLogin usually calls setAuthToken internally to save the real JWT
-      }
+      const result = await apiLogin(email, password);
 
       if (result.success) {
         setUser(result.user || null);
@@ -99,7 +60,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (email: string, password: string, name: string) => {
     try {
-      // Registration is treated as a "Real User" action (Render Backend)
       const result = await apiRegister(email, password, name);
       
       if (result.success) {
@@ -114,17 +74,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      const token = getAuthToken();
-
-      // Only notify backend if it's a real session
-      if (token && !token.startsWith('mock_')) {
-        await apiLogout();
-      }
+      await apiLogout();
     } catch (error) {
       console.error("Logout request failed:", error);
     } finally {
       // Always clear local state
-      clearAuthToken();
       setUser(null);
     }
   };

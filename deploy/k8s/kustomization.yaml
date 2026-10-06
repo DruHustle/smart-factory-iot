@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: smart-factory
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - resource-quota.yaml
+  - dashboard.yaml
+  - dashboard-pdb.yaml
+  - ingress.yaml
+  - network-policy.yaml
+images:
+  - name: ghcr.io/druhustle/smart-factory-iot
+    newName: ghcr.io/druhustle/smart-factory-iot
+    digest: sha256:REPLACE_WITH_64_HEX_DIGEST

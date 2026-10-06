@@ -1,14 +1,12 @@
-import { jsxLocPlugin } from "@builder.io/vite-plugin-jsx-loc";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import fs from "node:fs";
 import path from "path";
 import { defineConfig } from "vite";
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin()];
+const plugins = [react(), tailwindcss()];
 
 export default defineConfig({
-  base: '/smart-factory-iot/',
+  base: process.env.VITE_BASE_PATH || '/',
   plugins,
   resolve: {
     alias: {
@@ -23,6 +21,18 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("/node_modules/")) return undefined;
+          // Keep framework and shared UI code below the chunk-size warning; route pages load on demand.
+          if (/\/node_modules\/(react|react-dom|scheduler)\//.test(id)) return "framework";
+          if (id.includes("/node_modules/@radix-ui/")) return "radix-vendor";
+          if (id.includes("/node_modules/lucide-react/")) return "icons-vendor";
+          return undefined;
+        },
+      },
+    },
   },
   server: {
     host: true,

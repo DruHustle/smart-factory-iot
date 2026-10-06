@@ -1,0 +1,67 @@
+# Disposable cross-repository integration stack. Does not read repository .env files.
+services:
+  database:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: dashboard }
+    ports: ["127.0.0.1:55433:5432"]
+    volumes: ["dashboard_test_data:/var/lib/postgresql/data"]
+    healthcheck: { test: [CMD-SHELL, "pg_isready -U postgres -d dashboard"], interval: 2s, timeout: 3s, retries: 30 }
+  backend-database:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: telemetry }
+    volumes: ["../smart-factory-iot-backend/deploy/local-dev/init.sql:/docker-entrypoint-initdb.d/init.sql:ro", "backend_test_data:/var/lib/postgresql/data"]
+    healthcheck: { test: [CMD-SHELL, "pg_isready -U postgres -d telemetry"], interval: 2s, timeout: 3s, retries: 30 }
+  redis:
+    image: redis:8.2-alpine
+    ports: ["127.0.0.1:56380:6379"]
+    healthcheck: { test: [CMD, redis-cli, ping], interval: 2s, timeout: 3s, retries: 30 }
+  broker:
+    image: rabbitmq:4.3.6-management
+    environment: { RABBITMQ_DEFAULT_USER: review, RABBITMQ_DEFAULT_PASS: isolated-review-broker }
+    command: [sh, -c, "rabbitmq-plugins enable --offline rabbitmq_mqtt && rabbitmq-server"]
+    ports: ["127.0.0.1:51883:1883"]
+    healthcheck: { test: [CMD, rabbitmq-diagnostics, -q, ping], interval: 3s, timeout: 5s, retries: 40 }
+  device-service:
+    build: { context: ../smart-factory-iot-backend, dockerfile: src/Services/DeviceService/Dockerfile }
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      JWT_SECRET: isolated-review-jwt-secret-at-least-32-bytes
+      AAS_PROVISIONING_TOKEN: isolated-review-provisioner-at-least-32-bytes
+      REDIS_URL: redis://redis:6379
+      MqttBrokerHost: broker
+      MqttBrokerPort: 1883
+      MqttUsername: review
+      MqttPassword: isolated-review-broker
+      MqttUseTls: "false"
+      AAS_ALLOW_UNAUTHENTICATED_LOCAL: "true"
+      AAS_REPOSITORY_REGISTRY_INTEGRATION: "true"
+      AAS_REPOSITORY_URL: http://aas-repository:8081
+      AAS_SUBMODEL_REPOSITORY_URL: http://submodel-repository:8083
+      AAS_REGISTRY_URL: http://aas-registry:8082
+      AAS_SUBMODEL_REGISTRY_URL: http://submodel-registry:8084
+      AAS_CONCEPT_DESCRIPTION_REPOSITORY_URL: http://concept-description-repository:8085
+      AASX_FILE_SERVER_URL: http://aasx-file-server:8086
+    ports: ["127.0.0.1:55101:8080"]
+    depends_on: { broker: { condition: service_healthy }, redis: { condition: service_healthy } }
+    networks: [default, aas]
+  telemetry-service:
+    build: { context: ../smart-factory-iot-backend, dockerfile: src/Services/TelemetryService/Dockerfile }
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      DOTNET_ENVIRONMENT: Development
+      PostgresConnectionString: Host=backend-database;Database=telemetry;Username=postgres;Password=postgres;SSL Mode=Disable
+      MqttBrokerHost: broker
+      MqttBrokerPort: 1883
+      MqttUsername: review
+      MqttPassword: isolated-review-broker
+      MqttUseTls: "false"
+      MqttClientId: review-telemetry
+      INTERNAL_TELEMETRY_SINK_URL: http://host.docker.internal:3101/api/internal/telemetry
+      INGESTION_API_TOKEN: isolated-review-ingestion-token
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    depends_on: { broker: { condition: service_healthy }, backend-database: { condition: service_healthy } }
+networks:
+  aas: { external: true, name: smart-factory-iot-shared }
+volumes:
+  dashboard_test_data:
+  backend_test_data:

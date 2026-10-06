@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "generator": "scripts/render-pdfs.mjs",
+  "documents": {
+    "architecture.pdf": {
+      "source": "architecture.md",
+      "sourceSha256": "3a2a5dd08733df46d09d43ad95e9a629981380ed59cbb6e254cca78af9c57b15",
+      "pdfSha256": "d9358bbc96415bfb5dc9e453dd2aba357c39a583eae7e2f1e4854a1239f91fef"
+    },
+    "api-flows.pdf": {
+      "source": "api-flows.md",
+      "sourceSha256": "c0a6dd404a6525c450b2a386653cf03dd993cff852c7e246d397099715b6b08e",
+      "pdfSha256": "192ee66262e32b1f05d6dfc1aad8b19ab42a2e12de8a8d2c72261685376b3dba"
+    },
+    "database-schema.pdf": {
+      "source": "database-schema.md",
+      "sourceSha256": "426e3e643db7ab1aa47dcc4c7ca3a7f47453a1481abdc1e4a9f8a6a19eee8ffd",
+      "pdfSha256": "2cb31d2793facca7be39ed5dda6bd3152d432c8a4660b19c1030ee8ea250e152"
+    }
+  }
+}

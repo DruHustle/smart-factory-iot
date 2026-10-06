@@ -1,0 +1,1 @@
+ALTER TABLE "sensor_readings" ADD COLUMN "assetSignals" jsonb;
