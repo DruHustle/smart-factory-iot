@@ -85,7 +85,7 @@ export default function AssetAdministrationShell() {
   const shellData = shellQuery.data;
   const { data: events } = trpc.assets.getLifecycle.useQuery({ id: assetId }, { enabled: allowed && Number.isFinite(assetId) });
   const { data: versions } = trpc.assets.getVersions.useQuery({ id: assetId }, { enabled: allowed && Number.isFinite(assetId) });
-  const connectionsQuery = trpc.assets.getConnections.useQuery({ id: assetId }, { enabled: allowed && Number.isFinite(assetId) });
+  const connectionsQuery = trpc.assets.getConnections.useQuery({ id: assetId }, { enabled: allowed && Number.isFinite(assetId), refetchInterval: 3000 });
   const connections = connectionsQuery.data;
   const armConnection = connections?.find((connection) => connection.protocol === "ada031_v4_serial");
   const latestArmReadingQuery = trpc.analytics.getLatestAssetTelemetry.useQuery(
@@ -203,6 +203,9 @@ export default function AssetAdministrationShell() {
   const activeProfile = signal("active_profile");
   const latestSampleTimestamp = latestArmReading?.timestamp ?? armTelemetry?.latestReadingAt ?? null;
   const latestSampleDate = latestSampleTimestamp ? new Date(latestSampleTimestamp) : null;
+  const armConnectionLastSeen = armConnection?.lastSeen ? new Date(armConnection.lastSeen) : null;
+  const armEvidenceAt = latestSampleDate && !Number.isNaN(latestSampleDate.getTime()) ? latestSampleDate : armConnectionLastSeen;
+  const armConnected = !!armEvidenceAt && !Number.isNaN(armEvidenceAt.getTime()) && Date.now() - armEvidenceAt.getTime() <= 120_000;
 
   return (
     <>
@@ -317,10 +320,17 @@ export default function AssetAdministrationShell() {
 
       {armConnection && <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Activity className="h-5 w-5" />ADA031 live telemetry & performance</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle className="flex items-center gap-2"><Activity className="h-5 w-5" />ADA031 live telemetry & performance</CardTitle>
+            <Badge className={armConnected ? "bg-success text-success-foreground" : "bg-muted text-muted-foreground"}>{armConnected ? "Connected" : "Offline"}</Badge>
+          </div>
           <p className="text-xs text-muted-foreground">Latest controller sample refreshes every 3 seconds. Historical aggregates cover the last 24 hours.</p>
         </CardHeader>
         <CardContent className="space-y-4">
+          {!armConnected && <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm" role="alert">
+            <p className="font-medium">Arm configured, but no live serial evidence</p>
+            <p className="mt-1 text-muted-foreground">The USB profile points to <span className="font-mono">{armConnection.endpoint ?? "an unconfigured endpoint"}</span>, but no recent ADA031 telemetry has reached the dashboard. Install the connected arm firmware, verify the stable serial path on the Pi, add this asset ID to <span className="font-mono">ADA031_CONTROL_ASSET_IDS</span>, apply the gateway profile, and restart <span className="font-mono">smart-factory-edge</span>.</p>
+          </div>}
           {(latestArmReadingQuery.isError || telemetry.isError) && <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm" role="alert">
             <p className="font-medium">ADA031 telemetry could not be refreshed</p>
             <p className="mt-1 text-muted-foreground">The values below may be unavailable or stale. This does not change the arm state.</p>

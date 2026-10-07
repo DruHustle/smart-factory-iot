@@ -366,6 +366,10 @@ export default function DeviceDetail() {
             ) : (
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {connectedAssets.map((connectedAsset) => (
+                  (() => {
+                    const connectionSeenAt = connectedAsset.lastSeen ? new Date(connectedAsset.lastSeen).getTime() : Number.NaN;
+                    const physicallyConnected = Number.isFinite(connectionSeenAt) && Date.now() - connectionSeenAt <= 120_000;
+                    return (
                   <button
                     key={`asset-${connectedAsset.id}`}
                     type="button"
@@ -374,7 +378,7 @@ export default function DeviceDetail() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="mb-1 flex items-center gap-2"><Layers className="h-4 w-4 text-primary" /><Badge variant="outline">AAS asset</Badge></div>
+                        <div className="mb-1 flex flex-wrap items-center gap-2"><Layers className="h-4 w-4 text-primary" /><Badge variant="outline">AAS asset</Badge>{connectedAsset.protocol === "ada031_v4_serial" && <Badge className={physicallyConnected ? "bg-success text-success-foreground" : "bg-muted text-muted-foreground"}>{physicallyConnected ? "Connected" : "Offline"}</Badge>}</div>
                         <p className="truncate font-semibold">{connectedAsset.name}</p>
                         <p className="truncate font-mono text-xs text-muted-foreground">{connectedAsset.assetId}</p>
                       </div>
@@ -385,6 +389,8 @@ export default function DeviceDetail() {
                       <div className="rounded-md bg-muted/50 p-3"><p className="text-muted-foreground">Last telemetry</p><p className="mt-1 font-medium">{connectedAsset.lastSeen ? new Date(connectedAsset.lastSeen).toLocaleString() : "Not received"}</p></div>
                     </div>
                   </button>
+                    );
+                  })()
                 ))}
                 {connectedDevices.map((child) => {
                   const sampleDate = telemetrySampleDate(child.latestReading?.timestamp);
