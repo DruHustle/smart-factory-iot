@@ -1,11 +1,12 @@
 import { readFile } from 'node:fs/promises';
 
 const read = name => readFile(name, 'utf8');
-const [release, vercelText, dockerfile, supervisor, guide] = await Promise.all([
+const [release, vercelText, dockerfile, supervisor, entrypoint, guide] = await Promise.all([
   read('.github/workflows/release.yml'),
   read('vercel.json'),
   read('deploy/render/Dockerfile'),
   read('deploy/render/supervisord.conf'),
+  read('deploy/render/entrypoint.py'),
   read('RENDER_DEPLOYMENT.md'),
 ]);
 
@@ -59,6 +60,8 @@ requireText(release, /RENDER_WEB_SERVICE_ID/, 'release must deploy the scalable 
 requireText(release, /RENDER_WORKER_SERVICE_ID/, 'release must deploy the singleton Render worker service');
 requireText(supervisor, /autostart=%\(ENV_WEB_AUTOSTART\)s/, 'web processes must be role-gated');
 requireText(supervisor, /autostart=%\(ENV_WORKER_AUTOSTART\)s/, 'worker processes must be role-gated');
+requireText(entrypoint, /live = self\.path == '\/health\/live'[\s\S]*self\.send_response\(200 if live else 503\)/,
+  'migration startup listener must expose liveness without reporting readiness');
 
 const programs = [...supervisor.matchAll(/^\[program:([^\]]+)\]$/gm)].map(match => match[1]).sort();
 const expectedPrograms = ['analytics', 'api', 'device', 'identity', 'notification', 'telemetry'];
@@ -73,6 +76,7 @@ for (const phrase of [
   'Disable Vercel\'s independent Git production deployment',
   'RENDER_SERVICE_ROLE=web',
   'RENDER_SERVICE_ROLE=worker',
+  '| Health check path | `/health/live` | `/health/live` |',
 ]) {
   if (!guide.includes(phrase)) failures.push(`deployment guide is missing required guidance: ${phrase}`);
 }

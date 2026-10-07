@@ -53,13 +53,15 @@ Create **two paid, image-backed services** from the same reviewed GHCR digest. D
 | Setting | Web service | Worker service |
 |---|---|---|
 | `RENDER_SERVICE_ROLE` | `web` | `worker` |
-| Health check path | `/health/ready` | `/health/ready` |
+| Health check path | `/health/live` | `/health/live` |
 | Instances | Two fixed instances, or autoscaling with minimum two | Exactly one |
 | Persistent disk | None | At least 1 GB at `/var/data` as a sequential-rollout safeguard |
 | Public origin | Used by Vercel | Set as `DASHBOARD_API_ORIGIN` on the worker |
 | Processes | Node API, Device, Identity, Analytics | Telemetry MQTT consumer, Notification delivery |
 
 Set `RENDER_SERVICE_ROLE=web` on the web service and `RENDER_SERVICE_ROLE=worker` on the worker service. Do not leave either production service on the backward-compatible `all` role.
+
+Render must use `/health/live` for instance health and deployment port detection. Use `/health/ready` only for diagnostics and release verification because it intentionally returns `503` while a database, MQTT or another required dependency is unavailable.
 
 The stateless web tier has no disk, so Render can load-balance replicas and perform zero-downtime rolling deployments. The worker remains single-instance because it owns the stable MQTT client ID. Its disk prevents deployment overlap; application data remains in PostgreSQL and Redis. Give the worker a dedicated stable `MqttClientId` when migrating from the legacy all-in-one service. Stable ingestion IDs make the short cutover overlap idempotent.
 
