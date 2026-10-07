@@ -1,21 +1,21 @@
-# Vercel frontend and single-container Render backend
+# Vercel frontend and split Render backend
 
-This is the canonical deployment guide for all three repositories. Production runs the React UI on Vercel and all six backend services in **one non-root Render container**. Six BaSyx services run separately on one Oracle Cloud VM behind Caddy and use an Aiven PostgreSQL database. Kubernetes is unnecessary. Managed databases, messaging and Redis remain external; Pi/ESP32/ADA031 equipment stays on the OT network.
+This is the canonical deployment guide for all three repositories. Production runs the React UI on Vercel and uses **one non-root backend image with separate Render `web` and `worker` roles**. Six BaSyx services run separately on one Oracle Cloud VM behind Caddy and use an Aiven PostgreSQL database. Kubernetes is unnecessary. Managed databases, messaging and Redis remain external; Pi/ESP32/ADA031 equipment stays on the OT network.
 
 ## What runs where
 
-| Process | Bind address in the Render container | Purpose |
+| Process | Role and bind address | Purpose |
 |---|---|---|
-| Node API | `0.0.0.0:$PORT` (10000 default) | Accounts, sessions, role enforcement, assets, incidents, Assistant, dashboard queries and private telemetry ingress |
-| DeviceService | `127.0.0.1:3102` | AAS provisioning/import and gateway commands |
-| TelemetryService | `127.0.0.1:3103` health only | Persistent MQTT intake, PostgreSQL storage and retryable dashboard/event delivery |
-| IdentityService | `127.0.0.1:3104` | Current dashboard profile/role checks; no separate account store or Entra login |
-| AnalyticsService | `127.0.0.1:3105` | SQL sample coverage, gaps and null-safe metrics for selected assets |
-| NotificationService | `127.0.0.1:3106` | Durable incident and account-email delivery through SES or Resend |
+| Node API | web: `0.0.0.0:$PORT` | Accounts, sessions, role enforcement, assets, incidents, Assistant, dashboard queries and private telemetry ingress |
+| DeviceService | web: `127.0.0.1:3102` | AAS provisioning/import and gateway commands |
+| TelemetryService | worker: `0.0.0.0:$PORT` health endpoint | Persistent MQTT intake, PostgreSQL storage and retryable dashboard/event delivery |
+| IdentityService | web: `127.0.0.1:3104` | Current dashboard profile/role checks; no separate account store or Entra login |
+| AnalyticsService | web: `127.0.0.1:3105` | SQL sample coverage, gaps and null-safe metrics for selected assets |
+| NotificationService | worker: `127.0.0.1:3106` | Durable incident and account-email delivery through SES or Resend |
 
 Outside Render, the Oracle VM runs the AAS Repository, AAS Registry, Submodel Repository, Submodel Registry, Concept Description Repository, and AASX File Server. Caddy exposes HTTPS component paths and the client-credentials token endpoint; ports 8081–8086 bind to loopback. These services share the dedicated Aiven `basyx` database.
 
-Supervisor restarts failed processes and forwards shutdown signals. Public readiness verifies the dashboard database, Redis, and all five .NET services. `/health/live` remains available during dependency outages. Private APIs do not appear as public Render routes. The Node API delegates identity/analytics calls using a separate service token and the authenticated account ID; the services reload the current account from PostgreSQL.
+Supervisor restarts failed processes and forwards shutdown signals. Web readiness verifies the dashboard database, Redis, DeviceService, IdentityService and AnalyticsService. Worker readiness is served by TelemetryService; Supervisor independently restarts NotificationService if it exits. `/health/live` remains available during dependency outages. Private APIs do not appear as public Render routes. The Node API delegates identity/analytics calls using a separate service token and the authenticated account ID; the services reload the current account from PostgreSQL.
 
 ## Local development
 
@@ -29,7 +29,7 @@ When running the Node API on the host, use `BACKEND_DEPLOYMENT_MODE=local`, the 
 
 For exact Render-image acceptance without cloud credentials, build the bundle below then run `python3 scripts/bundle-smoke.py`. Its databases, broker and Redis are disposable, its UI/API port is 3110, and its synthetic accounts are removed on exit. It deliberately does not run plant equipment or send real email. `pnpm e2e` separately tests the browser at `E2E_PORT=3100`; `pnpm e2e:system` tests real AAS/MQTT/Pi paths with simulated serial equipment and requires the local BaSyx stack.
 
-## Build the single backend image
+## Build the shared backend image
 
 Run from the dashboard repository using a new output directory:
 
@@ -42,26 +42,28 @@ python3 scripts/bundle-smoke.py
 
 The context preparer includes only source/project/migration files and excludes local settings, secrets and build artifacts. Production releases use the coordinated workflow below to build `linux/amd64`, test it, and publish that same image by digest. This is the **only production backend image**; it contains the Node API and all five .NET services.
 
-The React frontend is a separate immutable Vercel build artifact, produced with `vercel build --prod` and uploaded with `vercel deploy --prebuilt --prod`. It is not a second Docker image: Vercel serves the static output and proxies `/api/*` to Render. Do not put database, broker, AAS, Resend or Assistant secrets in Vercel build variables.
+The React frontend is a separate immutable Vercel build artifact, produced with `vercel build --prod` and uploaded with `vercel deploy --prebuilt --prod`. It is not a second Docker image: Vercel serves the static output and proxies `/api/*` to the Render web service. Do not put database, broker, AAS, email-provider or Assistant secrets in Vercel build variables.
 
 The runtime uses the supported .NET 8 Ubuntu 24.04 base with OS security updates. Node entries are compiled during build, and the runtime install contains only the API dependency subset selected from the frozen lockfile. npm, Corepack, tsx, esbuild, Vite and drizzle-kit remain in build stages. Committed dashboard migrations run through the Drizzle ORM migrator using the same verified PostgreSQL connection as the API.
 
 ## Render service settings
 
-Create **one paid, image-backed web service**, linked to the published GHCR bundle. Its configured image repository must match the release workflow's `ghcr.io/<owner>/smart-factory-backend`. For a private GHCR package configure Render's registry credential with package read permission. Disable Render's independent auto-deploy setting: image-backed services are released by the coordinated GitHub workflow using an exact digest.
+Create **two paid, image-backed services** from the same reviewed GHCR digest. Disable Render's independent auto-deploy setting on both; the coordinated GitHub workflow deploys the worker first and the web tier second.
 
-| Setting | Value |
-|---|---|
-| Docker command | Leave empty; the image entrypoint starts Supervisor |
-| Pre-deploy command | `python3 /app/deploy/render/migrate.py` |
-| Health check path | `/health/ready` |
-| Instances | One |
-| Persistent disk | At least 1 GB mounted at `/var/data` |
-| Runtime | Begin with enough RAM/CPU for all six processes; validate with representative load |
+| Setting | Web service | Worker service |
+|---|---|---|
+| `RENDER_SERVICE_ROLE` | `web` | `worker` |
+| Health check path | `/health/ready` | `/health/ready` |
+| Instances | Two fixed instances, or autoscaling with minimum two | Exactly one |
+| Persistent disk | None | At least 1 GB at `/var/data` as a sequential-rollout safeguard |
+| Public origin | Used by Vercel | Set as `DASHBOARD_API_ORIGIN` on the worker |
+| Processes | Node API, Device, Identity, Analytics | Telemetry MQTT consumer, Notification delivery |
 
-The disk is a **rollout safeguard**, not the application datastore: [Render disks disable overlapping deployments and multi-instance scaling](https://render.com/docs/disks). This is required for the stable persistent MQTT client ID; two simultaneously running consumers would disconnect each other. Render stops the old instance before starting the replacement, so releases cause a brief API/UI data interruption. Pi/ESP32 spool data and the MQTT session queues readings within their configured capacity. This does not imply a machine has stopped, and connectivity loss alone never starts factory downtime.
+Set `RENDER_SERVICE_ROLE=web` on the web service and `RENDER_SERVICE_ROLE=worker` on the worker service. Do not leave either production service on the backward-compatible `all` role.
 
-Do not enable autoscaling or remove the disk without redesigning and testing broker consumer ownership. The [pre-deploy command](https://render.com/docs/deploys) runs separately and cannot access the attached disk. All migrations persist in PostgreSQL. Application data, inboxes and delivery queues survive container replacement.
+The stateless web tier has no disk, so Render can load-balance replicas and perform zero-downtime rolling deployments. The worker remains single-instance because it owns the stable MQTT client ID. Its disk prevents deployment overlap; application data remains in PostgreSQL and Redis. Give the worker a dedicated stable `MqttClientId` when migrating from the legacy all-in-one service. Stable ingestion IDs make the short cutover overlap idempotent.
+
+Render disks disable multiple instances and zero-downtime deployment, so never attach one to the web tier. Do not scale the worker above one without redesigning MQTT consumer ownership. The [pre-deploy command](https://render.com/docs/deploys) runs separately and cannot access an attached disk.
 
 ## Required runtime configuration
 
@@ -78,6 +80,8 @@ Set these values in Render's secret/environment settings, never in Git:
 | `MqttBrokerHost`, `MqttBrokerPort=8883`, `MqttUsername`, `MqttPassword`, `MqttClientId` | CloudAMQP TLS credentials, scoped telemetry consumption and a stable unique client ID |
 | `EDGE_SITE_ID`, `EDGE_LINE_ID` | Match the commissioned gateway command topic scope |
 | AAS repository/registry/file-server URLs and OIDC client configuration | Private HTTPS company endpoints; see [AAS configuration](docs/AASX-and-Edge-Configuration.md) |
+
+The web service requires the dashboard, Redis, device, identity, analytics, AAS and authorization settings. The worker requires the dashboard and telemetry database settings, MQTT settings, email-provider settings, service tokens, and `DASHBOARD_API_ORIGIN=https://<web-service>.onrender.com`. Keep matching `INGESTION_API_TOKEN` and `DASHBOARD_SERVICE_TOKEN` values on both services.
 
 The entrypoint writes the CA to a private file under `/tmp` and configures verified Npgsql connections for the dashboard-backed services. Demo accounts and simulated data default off; an intentionally public demonstration tenant can explicitly set `ENABLE_DEMO_ACCOUNTS=true` and `ENABLE_DEMO_DATA=true`. This publishes fixed credentials including a demo administrator and must never be used with sensitive data, production identities, live equipment or robot controls. Image defaults are `NODE_ENV=production`, `DOTNET_ENVIRONMENT=Production`, `ASPNETCORE_ENVIRONMENT=Production`, `API_ONLY=true`, `BACKEND_DEPLOYMENT_MODE=render-bundle`. It assigns private loopback routes and the dynamic public `PORT`; no hard-coded external backend URL is required for telemetry forwarding.
 
@@ -121,7 +125,7 @@ Edge CI and the coordinated release also audit the full pinned gateway dependenc
 
 The release job downloads and publishes the exact tested image, writes a three-repository source/digest manifest, deploys Render through its API and waits for that specific deployment to become live and ready. Only then does it build and deploy the matching Vercel UI artifact. Missing configuration fails the workflow; it cannot silently report a skipped deployment as success. Production releases are serialized and are not canceled mid-deploy.
 
-GitHub `production` environment secrets: `RENDER_API_KEY`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`. Environment variables: `RENDER_SERVICE_ID`, `RENDER_API_ORIGIN`. If companion repositories are private, add `REPOSITORY_READ_TOKEN` as a repository- or organization-level Actions secret because the verification job reads it before entering the `production` environment; scope it to read only the two companion repositories. `GITHUB_TOKEN` publishes GHCR with package-write permission only in the release job. Runtime database, broker, Resend and Assistant secrets remain exclusively in Render. Configure these values before the first push-triggered release; missing values intentionally fail the release rather than silently skipping a provider.
+GitHub `production` environment secrets: `RENDER_API_KEY`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`. Environment variables: `RENDER_WEB_SERVICE_ID`, `RENDER_WORKER_SERVICE_ID`, `RENDER_WEB_API_ORIGIN`. If companion repositories are private, add `REPOSITORY_READ_TOKEN` as a repository- or organization-level Actions secret because the verification job reads it before entering the `production` environment; scope it to read only the two companion repositories. `GITHUB_TOKEN` publishes GHCR with package-write permission only in the release job. Runtime database, broker, email and Assistant secrets remain exclusively in Render. Configure these values before the first push-triggered release; missing values intentionally fail the release rather than silently skipping a provider.
 
 The pre-deploy task runs committed Drizzle migrations, idempotent telemetry SQL under an advisory lock, and DeviceService EF migrations. It never generates schema changes or seeds demo accounts. Migration 0013 does not email historical incidents. Migration 0014 enforces case-insensitive unique account emails; review and reconcile any pre-existing duplicates before migration rather than merging identities automatically. Take verified backups before applying migrations to an existing production database, and test migration compatibility on a restored copy.
 

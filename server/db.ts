@@ -11,7 +11,7 @@ import { getAllowedAssetTransitions, type AssetLifecycleStage } from "../shared/
 import { getAlertErrorCode } from "../shared/alert-codes";
 import { evaluateAlertThreshold } from "../shared/alert-thresholds";
 import { deviceWithCurrentStatus } from "./deviceConnectivity";
-import { demoDataEnabled, visibleWhenDemoDataEnabled } from "./demoData";
+import { demoDataEnabled, setRuntimeDemoDataEnabled, visibleWhenDemoDataEnabled } from "./demoData";
 
 const {
   users,
@@ -27,7 +27,29 @@ const {
   notificationInbox,
   firmwareVersions,
   otaDeployments,
+  systemSettings,
 } = schema;
+
+const demoDataSettingKey = "demo_data_enabled";
+
+export async function refreshDemoDataSetting(): Promise<boolean> {
+  return withDb(async (db) => {
+    const [row] = await db.select({ value: systemSettings.value }).from(systemSettings)
+      .where(eq(systemSettings.key, demoDataSettingKey)).limit(1);
+    const enabled = typeof row?.value === "boolean" ? row.value : process.env.ENABLE_DEMO_DATA === "true";
+    setRuntimeDemoDataEnabled(enabled);
+    return enabled;
+  });
+}
+
+export async function setDemoDataSetting(enabled: boolean, updatedBy: number): Promise<boolean> {
+  return withDb(async (db) => {
+    await db.insert(systemSettings).values({ key: demoDataSettingKey, value: enabled, updatedBy })
+      .onConflictDoUpdate({ target: systemSettings.key, set: { value: enabled, updatedBy, updatedAt: new Date() } });
+    setRuntimeDemoDataEnabled(enabled);
+    return enabled;
+  });
+}
 
 export type User = schema.User;
 export type InsertUser = schema.InsertUser;
@@ -914,9 +936,13 @@ export async function transitionAssetLifecycle(
   }));
 }
 
-/** Seed a complete API-backed scenario only when no real industrial assets exist. */
-export async function initializeDemoScenario() {
+/** Seed the API-backed scenario. Startup stays conservative around live assets; an
+ * explicit administrator action may opt in alongside real equipment. */
+export async function initializeDemoScenario(options: { allowAlongsideLive?: boolean } = {}) {
   return withDb(async (db) => db.transaction(async (tx) => {
+    // Serialize startup across web replicas and explicit admin toggles. The
+    // unique asset/device identities remain a second line of defense.
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(2026100701)`);
     const [liveAsset] = await tx.select({ id: assets.id }).from(assets).where(eq(assets.isDemo, false)).limit(1);
     const [alreadySeeded] = await tx.select({ id: assets.id }).from(assets).where(eq(assets.isDemo, true)).limit(1);
     // Add the new demo asset on existing installations without rebuilding or
@@ -1024,7 +1050,7 @@ export async function initializeDemoScenario() {
     if (alreadySeeded) {
       return { seeded: false, addedWindformer: await seedWindformerDemo() };
     }
-    if (liveAsset) return { seeded: false };
+    if (liveAsset && !options.allowAlongsideLive) return { seeded: false };
 
     const demoDevices = await tx.insert(devices).values([
       { deviceId: "demo-gateway-compressor-01", name: "Edge Gateway · Compressor 01", type: "gateway", status: "online", location: "Utilities Room", zone: "Plant A", firmwareVersion: "demo-1.0", lastSeen: new Date(), isDemo: true, metadata: { protocol: "OPC UA", source: "simulator" } },

@@ -5,6 +5,7 @@ The dashboard uses PostgreSQL with Drizzle ORM. The source of truth is drizzle/s
 ```mermaid
 erDiagram
   USERS ||--o{ ASSET_LIFECYCLE_EVENTS : records
+  USERS ||--o{ SYSTEM_SETTINGS : updates
   ASSETS ||--o{ ASSET_VERSIONS : snapshots
   ASSETS ||--o{ ASSET_DEVICES : connected_through
   DEVICES ||--o{ ASSET_DEVICES : gateways
@@ -14,6 +15,12 @@ erDiagram
     string email
     string password
     string role
+  }
+  SYSTEM_SETTINGS {
+    string key PK
+    json value
+    int updatedBy
+    timestamp updatedAt
   }
   ASSETS {
     int id PK
@@ -84,6 +91,7 @@ Threshold-generated incidents use stable `SF-*` platform classifications. A vend
 | Table | Purpose |
 |---|---|
 | users | Local identity, bcrypt password hash in `password`, role, and sign-in timestamps. Never expose the hash in API responses. |
+| system_settings | Durable application-wide settings changed by administrators. `demo_data_enabled` controls whether demo rows are included; replicas refresh it without requiring a deployment. |
 | devices | Connectivity devices. New registrations use enum type `gateway` or `edge_device`; legacy sensor/actuator/controller values remain readable. Includes status, location, firmware, and simulator marker. Migration `0015_melted_dragon_lord` adds `edge_device`. |
 | assets | Equipment identity, manufacturer name/designation, separate required postal fields, article and order codes, optional serial/rated values, lifecycle, current AAS JSON, monotonic AAS revision, and simulator marker. |
 | asset_devices | Asset-to-gateway protocol, endpoint, and tag/register mappings. Store credentials on the edge gateway, not in mappings. |
@@ -95,7 +103,7 @@ Threshold-generated incidents use stable `SF-*` platform classifications. A vend
 | alert_thresholds | Enabled per-device warning and critical bands used to classify telemetry into incidents. |
 | firmware_versions, ota_deployments | Firmware catalog metadata and legacy rollout rows. OTA is disabled; a rollout row is not proof that a device downloaded, verified, installed, or booted a release. |
 
-Connection and lifecycle ids are application-level relationships, not database-enforced foreign keys in the current schema. Oracle-hosted BaSyx owns separate storage in the Aiven `basyx` PostgreSQL database; it is not part of the Drizzle application schema. Demo rows are marked isDemo and are API-seeded only when demo data is enabled and no real assets exist.
+Connection and lifecycle ids are application-level relationships, not database-enforced foreign keys in the current schema. Oracle-hosted BaSyx owns separate storage in the Aiven `basyx` PostgreSQL database; it is not part of the Drizzle application schema. Demo rows are marked `isDemo`; startup seeding remains conservative when live assets exist, while an explicit admin toggle can seed and reveal isolated demo records alongside them.
 
 Review migration SQL before applying changes. Set DATABASE_URL to the intended database before running pnpm db:migrate. pnpm e2e uses its own disposable PostgreSQL container.
 
@@ -105,6 +113,6 @@ Migration `0013_incident_notifications` adds `notification_inbox` and an alert t
 
 Each row belongs to one account, optionally links to an alert, and retains title/body, read time, email status, attempts, next attempt time, safe error summary and provider acceptance time. Foreign-key cascades remove rows when their account or associated alert is deleted. The delivery worker atomically claims due rows using a two-minute lease and retries after a crash. `accepted` means the provider accepted the request, not that the email reached a mailbox. Eight failed attempts become `failed`; an authorized owner may retry an incident message after correcting configuration. `unconfigured` and `no_recipient` remain visible for incident messages; account welcome rows are email-only and do not appear in the incident inbox.
 
-The inbox is queryable only by its owner. Reads do not acknowledge/resolve the factory incident. The Resend API key, sender and recipient-domain policy are runtime secrets/configuration, not editable browser notification settings. Plan retention/archive policies for both telemetry and inbox history before long-term production operation.
+The inbox is queryable only by its owner. Reads do not acknowledge/resolve the factory incident. Email-provider credentials, sender identity and recipient policy are runtime secrets/configuration, not editable browser notification settings. Plan retention/archive policies for both telemetry and inbox history before long-term production operation.
 
 Migration `0014_account_email_identity` adds a case-insensitive unique email index. Null emails remain allowed for legacy identity records. Existing duplicate case-folded email addresses must be reconciled by an administrator before migration. Production self-registration is closed; further accounts are created by an authenticated administrator after private first-admin bootstrap. Passwords are never included in account API responses.

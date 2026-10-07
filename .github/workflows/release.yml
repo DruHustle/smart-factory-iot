@@ -159,8 +159,10 @@ jobs:
       packages: write
     env:
       RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-      RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
-      RENDER_API_ORIGIN: ${{ vars.RENDER_API_ORIGIN }}
+      RENDER_WEB_SERVICE_ID: ${{ vars.RENDER_WEB_SERVICE_ID }}
+      RENDER_WORKER_SERVICE_ID: ${{ vars.RENDER_WORKER_SERVICE_ID }}
+      RENDER_WEB_API_ORIGIN: ${{ vars.RENDER_WEB_API_ORIGIN }}
+      RENDER_API_ORIGIN: ${{ vars.RENDER_WEB_API_ORIGIN }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -168,7 +170,7 @@ jobs:
     steps:
       - name: Require release configuration
         run: |
-          for key in RENDER_API_KEY RENDER_SERVICE_ID RENDER_API_ORIGIN VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+          for key in RENDER_API_KEY RENDER_WEB_SERVICE_ID RENDER_WORKER_SERVICE_ID RENDER_WEB_API_ORIGIN VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
             [[ -n "${!key}" ]] || { echo "Missing release configuration: $key"; exit 1; }
           done
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4

@@ -32,6 +32,14 @@ export const users = pgTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
+/** Deployment-wide feature switches edited by authorized administrators. */
+export const systemSettings = pgTable("system_settings", {
+  key: varchar("key", { length: 100 }).primaryKey(),
+  value: jsonb("value").$type<boolean | string | number | null>().notNull(),
+  updatedBy: integer("updatedBy"),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
 /**
  * Devices table - represents IoT edge devices in the factory
  */

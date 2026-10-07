@@ -55,6 +55,10 @@ if (!headerValue('Permissions-Policy')) failures.push('Vercel responses must def
 requireText(dockerfile, /^FROM mcr\.microsoft\.com\/dotnet\/aspnet:8\.0-noble AS runtime$/m, 'Render runtime must use the reviewed .NET Ubuntu image');
 requireText(dockerfile, /^USER app$/m, 'Render image must run as the non-root app user');
 requireText(dockerfile, /ENTRYPOINT \["python3", "\/app\/deploy\/render\/entrypoint\.py"\]/, 'Render image must use the validated bundle entrypoint');
+requireText(release, /RENDER_WEB_SERVICE_ID/, 'release must deploy the scalable Render web service');
+requireText(release, /RENDER_WORKER_SERVICE_ID/, 'release must deploy the singleton Render worker service');
+requireText(supervisor, /autostart=%\(ENV_WEB_AUTOSTART\)s/, 'web processes must be role-gated');
+requireText(supervisor, /autostart=%\(ENV_WORKER_AUTOSTART\)s/, 'worker processes must be role-gated');
 
 const programs = [...supervisor.matchAll(/^\[program:([^\]]+)\]$/gm)].map(match => match[1]).sort();
 const expectedPrograms = ['analytics', 'api', 'device', 'identity', 'notification', 'telemetry'];
@@ -67,6 +71,8 @@ for (const phrase of [
   'only production backend image',
   'not a second Docker image',
   'Disable Vercel\'s independent Git production deployment',
+  'RENDER_SERVICE_ROLE=web',
+  'RENDER_SERVICE_ROLE=worker',
 ]) {
   if (!guide.includes(phrase)) failures.push(`deployment guide is missing required guidance: ${phrase}`);
 }

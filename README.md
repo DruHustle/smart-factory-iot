@@ -151,9 +151,9 @@ Database/Redis integration tests require explicit TEST_DATABASE_URL/TEST_REDIS_U
 
 ## Deployment
 
-Production uses **Vercel for the React UI and one Render container for all six backend processes**: Node API, DeviceService, TelemetryService, IdentityService, AnalyticsService, and NotificationService. Aiven PostgreSQL, Redis Cloud, CloudAMQP, and company AAS services remain external. Physical edge gateways stay in the factory.
+Production uses **Vercel for the React UI and one immutable image deployed as two Render services**. The scalable `web` service runs Node API, DeviceService, IdentityService, and AnalyticsService. The singleton `worker` service runs TelemetryService and NotificationService so only one stable MQTT consumer processes physical-device traffic. Aiven PostgreSQL, Redis Cloud, CloudAMQP, and company AAS services remain external. Physical edge gateways stay in the factory.
 
-The protected `main` branch starts one coordinated GitHub Actions release: it validates all three repositories, publishes one immutable backend image to GHCR, deploys that digest to Render, waits for readiness, then deploys the prebuilt static frontend artifact to Vercel. Vercel does not run a frontend Docker image. Independent Render/Vercel auto-deploy paths must remain disabled so production ordering and rollback evidence stay unambiguous.
+The protected `main` branch starts one coordinated GitHub Actions release: it validates all three repositories, publishes one immutable backend image to GHCR, deploys that digest to the singleton worker and then the scalable web service, waits for web readiness, and finally deploys the prebuilt static frontend artifact to Vercel. Vercel does not run a frontend Docker image. Independent Render/Vercel auto-deploy paths must remain disabled so production ordering and rollback evidence stay unambiguous.
 
 Use [Vercel/Render and local deployment](RENDER_DEPLOYMENT.md) for required GitHub secrets/variables, provider setup, migrations, push-triggered CI/CD, restart behavior, acceptance and rollback. Kubernetes is not required; its retained manifests are legacy references outside the supported release.
 

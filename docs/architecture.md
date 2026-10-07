@@ -10,31 +10,33 @@
 
 The Node API is the dashboard account and role authority. Dashboard sessions are HttpOnly cookies. The .NET telemetry bridge and the .NET AAS provisioner use separate service credentials. The private AAS stack has separate AAS and Submodel Repositories, AAS and Submodel Registries, a Concept Description Repository, and an AASX File Server.
 
-Production hosts the React UI on Vercel and all six backend processes in one supervised Render container. Only the Node API is public; the five .NET services bind to loopback. Aiven, Redis Cloud and CloudAMQP remain managed external systems. The AAS runtime is a separate Oracle Cloud VM running six BaSyx services behind Caddy and a client-credentials token endpoint; it stores AAS data in the dedicated Aiven `basyx` database. Physical Pi gateways, WROVER sensors and ADA031 controllers remain in the factory.
+Production hosts the React UI on Vercel and runs one reviewed image in two Render roles. The scalable `web` role contains the Node API plus Device, Identity and Analytics services. The singleton `worker` role contains the MQTT Telemetry consumer and Notification delivery service. Aiven, Redis Cloud and CloudAMQP remain managed external systems. The AAS runtime is a separate Oracle Cloud VM running six BaSyx services behind Caddy and a client-credentials token endpoint; it stores AAS data in the dedicated Aiven `basyx` database. Physical Pi gateways, WROVER sensors and ADA031 controllers remain in the factory.
 
 ## Request and data flow
 
 ```mermaid
 flowchart TB
   Browser[Factory user] -->|HTTPS| Vercel[Vercel React UI and API proxy]
-  subgraph Render[One Render container]
+  subgraph RenderWeb[Render web tier: two or more replicas]
     API[Node API: accounts assets incidents Assistant]
     Device[DeviceService: AAS and commands]
-    Telemetry[TelemetryService: durable intake and outbox]
     Identity[IdentityService: current account roles]
     Analytics[AnalyticsService: sample coverage and gaps]
-    Notification[NotificationService: Resend delivery worker]
-    API -->|Private service token| Device
-    API -->|Account delegation| Identity
-    API -->|Asset range query| Analytics
-    Telemetry -->|Retryable ingestion| API
   end
+  subgraph RenderWorker[Render singleton worker]
+    Telemetry[TelemetryService: durable intake and outbox]
+    Notification[NotificationService: transactional email worker]
+  end
+  API -->|Private service token| Device
+  API -->|Account delegation| Identity
+  API -->|Asset range query| Analytics
+  Telemetry -->|Authenticated HTTPS ingestion| API
   Vercel -->|First-party cookie API rewrite| API
   API --> AppDB[(Aiven dashboard PostgreSQL)]
   Identity --> AppDB
   Analytics --> AppDB
   Notification -->|Durable incident inbox| AppDB
-  Notification -->|Server-side API key| Resend[Resend configured sender]
+  Notification -->|Server-side credentials| Mail[Amazon SES or configured sender]
   Device --> DeviceDB[(Aiven device PostgreSQL)]
   Telemetry --> TelemetryDB[(Aiven telemetry PostgreSQL)]
   API --> Redis[(Redis Cloud TLS)]
@@ -55,11 +57,11 @@ flowchart TB
 
 ## Production deployment topology
 
-Supervisor starts and restarts all six services as the image's non-root user. Node listens on Render's dynamic public `PORT`; Device, Telemetry health, Identity, Analytics and Notification use private ports 3102–3106. Node readiness requires database/Redis and every backend process; liveness remains available during dependency failures.
+Supervisor activates processes according to `RENDER_SERVICE_ROLE`. The `web` role starts Node, Device, Identity and Analytics; it has no persistent disk and can run multiple load-balanced instances with rolling deployment. The `worker` role starts Telemetry and Notification, stays at exactly one instance, and uses a disk only to force sequential deployment of the stable MQTT consumer. Both roles run as the image's non-root user and restart failed child processes.
 
-The deployment is one instance. An attached Render disk forces sequential restarts to protect the stable persistent MQTT session from overlapping workers. Application state lives in PostgreSQL/Redis and edge spools; the disk is a rollout safeguard. Releases cause a brief API interruption covered by bounded edge/broker queues. Horizontal scaling and high availability require a separate tested consumer ownership design.
+Application state lives in PostgreSQL/Redis and edge spools. Web-instance failure does not stop ingestion, while worker restart does not remove the dashboard API. The worker forwards telemetry to the authenticated public web origin and retains undelivered records in its PostgreSQL outbox.
 
-A protected dashboard `main` push starts the sole production release workflow. It resolves immutable revisions for all three repositories, tests one `linux/amd64` image containing the Node API and five .NET services, publishes that exact digest, deploys it to Render, waits for readiness, and then deploys the separately prebuilt static React artifact to Vercel. The frontend is not a Docker runtime. Independent provider Git/auto-deploy paths remain disabled to prevent an untested or out-of-order release. See [Vercel/Render deployment](../RENDER_DEPLOYMENT.md) for provider configuration, migrations, source-pinned CI/CD and rollback.
+A protected dashboard `main` push starts the sole production release workflow. It resolves immutable revisions for all three repositories, tests one `linux/amd64` image containing the Node API and five .NET services, publishes that exact digest, deploys the worker and web roles from that digest, waits for readiness, and then deploys the separately prebuilt static React artifact to Vercel. The frontend is not a Docker runtime. Independent provider Git/auto-deploy paths remain disabled to prevent an untested or out-of-order release. See [Vercel/Render deployment](../RENDER_DEPLOYMENT.md) for provider configuration, migrations, source-pinned CI/CD and rollback.
 
 ## Assets and AAS
 
@@ -71,7 +73,7 @@ The full standards API is not reimplemented in tRPC. `/api/aas/*` authenticates 
 
 This is an asset lifecycle, telemetry, and gateway configuration platform, not a safety-rated control system. It must not perform emergency-stop, guarding, interlock, or other protective functions. Keep those functions independent and complete a site-specific risk assessment and validation before production use.
 
-When no assets exist, `ENABLE_DEMO_DATA=true` seeds example assets through the API/database layer. Browser code does not contain fallback equipment records. Local development may build local AAS JSON when the provisioner URL is absent; production asset creation fails closed until the private .NET provisioner is configured.
+When no assets exist, `ENABLE_DEMO_DATA=true` provides the initial demo-data setting and can seed example assets through the API/database layer. Administrators can subsequently change the persisted deployment-wide setting from the Overview page; all replicas refresh it from PostgreSQL. Browser code does not contain fallback equipment records. Local development may build local AAS JSON when the provisioner URL is absent; production asset creation fails closed until the private .NET provisioner is configured.
 
 ## Identity and access
 
@@ -79,7 +81,7 @@ The Node API verifies bcrypt password hashes, issues an eight-hour HS256 JWT in 
 
 ## Demo data
 
-With the demo-data flag enabled, startup seeds a PostgreSQL-backed compressor, transformer, and Windformer wind turbine generator scenario when no live assets exist. The seed includes gateway connections, telemetry, alerts, template-based AAS documents, and lifecycle history. Windformer identity and operating measurements are synthetic, and the seeded 2.5 MW nameplate is a demo value. An idempotent upgrade adds Windformer to an existing demo scenario without replacing its records. Demo records are visibly simulated and cannot be lifecycle-edited. Demo login seeding is separately enabled and hard-disabled in production.
+With demo data enabled, startup seeds a PostgreSQL-backed compressor, transformer, and Windformer wind turbine generator scenario when no live assets exist. Administrators can show or hide those persisted demo records with the Overview toggle without deleting them. The setting is stored centrally in PostgreSQL and refreshed across web replicas. The seed includes gateway connections, telemetry, alerts, template-based AAS documents, and lifecycle history. Windformer identity and operating measurements are synthetic, and the seeded 2.5 MW nameplate is a demo value. An idempotent upgrade adds Windformer to an existing demo scenario without replacing its records. Demo records are visibly simulated and cannot be lifecycle-edited. Demo login seeding remains independent.
 
 The supplied `aas-specs-aasx-3.2.0.zip` includes the IDTA-01005 package example, which demonstrates generic shells, submodels, and embedded files. It does not define a Windformer machine model. The import UI renders the imported shell, nested elements, semantic identifiers, concept descriptions, and file references from the package; Windformer is generated separately from the application's IDTA template builder and its synthetic telemetry is marked as demo data.
 

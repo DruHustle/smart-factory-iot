@@ -3,10 +3,12 @@ import { useLocation } from "wouter";
 import { Activity, AlertTriangle, ArrowRight, Bell, Clock, Factory, Layers, RefreshCw, Wifi, WifiOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/contexts/AuthContext";
 import { canViewEngineering } from "@/lib/access";
+import { toast } from "sonner";
 
 const statusStyles: Record<string, string> = {
   online: "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300",
@@ -26,6 +28,18 @@ const lifecycleStyles: Record<string, string> = {
 export default function Home() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
+  const utils = trpc.useUtils();
+  const demoData = trpc.system.demoData.useQuery();
+  const setDemoData = trpc.system.setDemoData.useMutation({
+    onSuccess: async ({ enabled }) => {
+      await Promise.all([
+        utils.system.demoData.invalidate(), utils.analytics.invalidate(), utils.devices.invalidate(),
+        utils.assets.invalidate(), utils.alerts.invalidate(), utils.notifications.invalidate(),
+      ]);
+      toast.success(enabled ? "Demo data enabled" : "Demo data hidden");
+    },
+    onError: (error) => toast.error(`Demo data could not be changed: ${error.message}`),
+  });
   const overview = trpc.analytics.getOverview.useQuery(undefined, { refetchInterval: 30_000 });
   const gatewaysQuery = trpc.devices.list.useQuery({ type: "gateway" }, { refetchInterval: 30_000 });
   const assetsQuery = trpc.assets.list.useQuery(undefined, { refetchInterval: 30_000 });
@@ -60,9 +74,21 @@ export default function Home() {
             <p className="mt-1 text-muted-foreground">Asset status, gateway connectivity, open incidents, and confirmed downtime.</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />Refresh data
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 rounded-md border bg-background/70 px-3 py-2 text-sm">
+            <Switch
+              aria-label="Show demo data"
+              checked={demoData.data?.enabled ?? false}
+              disabled={user?.role !== "admin" || demoData.isLoading || setDemoData.isPending}
+              onCheckedChange={(enabled) => setDemoData.mutate({ enabled })}
+            />
+            <span>Demo data</span>
+            {user?.role !== "admin" && <span className="sr-only">Administrator access required</span>}
+          </label>
+          <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />Refresh data
+          </Button>
+        </div>
       </div>
 
       {hasError && <Card role="alert" className="border-destructive/40"><CardContent className="py-4 text-sm text-destructive">Some dashboard data could not be loaded. Refresh the page or check the API connection.</CardContent></Card>}

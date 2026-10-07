@@ -70,6 +70,13 @@ try:
         accounts[role]=(opener,user['id'])
         assert trpc(opener,'auth.me',query=True)['role'] == role
     admin,admin_id=accounts['admin']; engineer,engineer_id=accounts['engineer']; viewer,viewer_id=accounts['viewer']
+    assert trpc(viewer,'system.demoData',query=True)['enabled'] is False
+    status,_=http(viewer,'/api/trpc/system.setDemoData',{'enabled':True}); assert status==403
+    assert trpc(admin,'system.setDemoData',{'enabled':True})['enabled'] is True
+    assert any(asset['isDemo'] for asset in trpc(viewer,'assets.list',query=True))
+    assert trpc(admin,'system.setDemoData',{'enabled':False})['enabled'] is False
+    assert not any(asset['isDemo'] for asset in trpc(viewer,'assets.list',query=True))
+    print('PASS: the persisted demo-data switch is admin-only and immediately controls API visibility.')
     # Check the private service boundary, independent of the public Node role guard.
     status=run(COMPOSE+['exec','-T','bundle','curl','-s','-o','/dev/null','-w','%{http_code}','http://127.0.0.1:3104/api/auth/profile'], True)
     assert status == '401'
@@ -82,7 +89,7 @@ try:
     assert not trpc(viewer,'notifications.list',query=True)
     status,_=http(viewer,'/api/trpc/notifications.markRead',{'id':items[0]['id']}); assert status==404
     trpc(engineer,'notifications.markRead',{'id':items[0]['id']})
-    wait(lambda: sql("SELECT count(*) FROM notification_inbox WHERE kind<>'account_welcome' AND \"emailStatus\"='unconfigured'") == '4')
+    wait(lambda: sql(f"SELECT count(*) FROM notification_inbox WHERE \"alertId\"={alert} AND \"emailStatus\"='unconfigured'") == '4')
     assert sql("SELECT count(*) FROM notification_inbox WHERE kind='account_welcome' AND \"emailStatus\"='unconfigured'") == '3'
     run(COMPOSE+['exec','-T','bundle','supervisorctl','-c','/app/deploy/render/supervisord.conf','restart','notification'])
     assert len(trpc(engineer,'notifications.list',query=True)) == 2

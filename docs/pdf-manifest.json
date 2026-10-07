@@ -4,18 +4,18 @@
   "documents": {
     "architecture.pdf": {
       "source": "architecture.md",
-      "sourceSha256": "8b65c43fa7a0014a5dc284fd770189be5c3273d157cdfed05a82ba5c90788a30",
-      "pdfSha256": "1bf20262c5277e2fac56c8a4c8d99c85530f9022af84dd1c82033840ba995888"
+      "sourceSha256": "e8e5bf2f49afba1846da20908548ca938311bffd9574f7a3be27bb2b0b6fc26a",
+      "pdfSha256": "8bf91e0b1a3217a5bc408d8099bac4cbcacd8fc837c551a0442d04697f64e14a"
     },
     "api-flows.pdf": {
       "source": "api-flows.md",
       "sourceSha256": "ada57ac81517e97f219ef3af94b8cdb2cfc9f4b992f90941bb55e958adb8591e",
-      "pdfSha256": "10a3756e149c5685ce84f60702abce7bdb983f8cdec82db77628702fc55cfc9c"
+      "pdfSha256": "acf568eb76e2c542e6f79c1785d65bbfb96e58507eb7e1a73ef0ff35a3b67462"
     },
     "database-schema.pdf": {
       "source": "database-schema.md",
-      "sourceSha256": "915fabf29f0f589f943cdbca0113e8f89585a3f110d940d56347454377deb821",
-      "pdfSha256": "f1b26a115d9e44d631aef3189ebdae508f1c42f133f81831ed9e7faa0d851eb1"
+      "sourceSha256": "fcd9be8ca57cd4f96291fd3feb707fe6bcc6535f3e7a361213d82d6885e84ba9",
+      "pdfSha256": "3d4e20d5075acb48ed169d0adb564a192db7000bb24760d33ba2637f5375e8bc"
     }
   }
 }

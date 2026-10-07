@@ -53,7 +53,7 @@ ENV NODE_ENV=production ASPNETCORE_ENVIRONMENT=Production DOTNET_ENVIRONMENT=Pro
     AAS_PROVISIONING_API_URL=http://127.0.0.1:3102/api/assets \
     INTERNAL_TELEMETRY_SINK_URL=http://127.0.0.1:10000/api/internal/telemetry \
     TELEMETRY_MIGRATIONS_DIR=/app/telemetry-migrations \
-    TRUST_PROXY=loopback
+    TRUST_PROXY=loopback RENDER_SERVICE_ROLE=all
 USER app
 EXPOSE 10000
 HEALTHCHECK --interval=15s --timeout=6s --start-period=60s --retries=3 \

@@ -91,10 +91,17 @@ async function loginRateLimit(req: express.Request, res: express.Response, next:
 }
 
 async function startServer() {
+  await db.refreshDemoDataSetting().catch((error) =>
+    console.warn("[Bootstrap] Persisted demo-data setting was not loaded:", error instanceof Error ? error.message : "unknown error"));
+  const settingsRefresh = setInterval(() => {
+    void db.refreshDemoDataSetting().catch((error) =>
+      console.warn("[Settings] Demo-data setting refresh failed:", error instanceof Error ? error.message : "unknown error"));
+  }, 5_000);
+  settingsRefresh.unref();
   if (demoAccountsEnabled()) {
     await initializeDemoAccounts().catch((error) => console.warn("[Bootstrap] Demo accounts were not initialized:", error));
   }
-  if (process.env.ENABLE_DEMO_DATA === "true") {
+  if ((await db.refreshDemoDataSetting().catch(() => false))) {
     await db.initializeDemoScenario()
       .then((result) => console.log(result.seeded
         ? "[Bootstrap] API demo scenario initialized"
@@ -115,7 +122,9 @@ async function startServer() {
       await db.checkDatabaseHealth();
       if (!wsManager.isReady()) return res.status(503).json({ status: "not-ready", dependency: "redis" });
       if (process.env.BACKEND_DEPLOYMENT_MODE === "render-bundle") {
-        const services = await Promise.all([3102, 3103, 3104, 3105, 3106].map(async (port) => {
+        const servicePorts = (process.env.BUNDLE_SERVICE_PORTS ?? "3102,3103,3104,3105,3106")
+          .split(",").map(Number).filter((port) => Number.isInteger(port) && port > 0);
+        const services = await Promise.all(servicePorts.map(async (port) => {
           try { return (await fetch(`http://127.0.0.1:${port}/health/ready`, { signal: AbortSignal.timeout(4000) })).ok; }
           catch { return false; }
         }));

@@ -1,10 +1,10 @@
 # Production readiness review and evidence
 
-Reviewed 2026-10-07 across `smart-factory-iot`, `smart-factory-iot-backend` and `smart-factory-iot-edge`. The selected target is **Vercel frontend plus one Render container containing all six backend processes**. Existing dashboard accounts/roles remain authoritative; notifications use the in-app inbox and configured Resend email. Live DHT11 ingestion and a commissioned 200 ms WROVER indicator pulse were verified; no production deployment, physical arm movement or firmware flashing was performed.
+Reviewed 2026-10-07 across `smart-factory-iot`, `smart-factory-iot-backend` and `smart-factory-iot-edge`. The selected target is **Vercel frontend plus one immutable image deployed to separate Render web and worker services**. Existing dashboard accounts/roles remain authoritative; notifications use the in-app inbox and configured transactional email provider. Live DHT11 ingestion and a commissioned 200 ms WROVER indicator pulse were verified; no production deployment, physical arm movement or firmware flashing was performed.
 
 ## Assessment
 
-The code now has a substantially stronger tested local release path. It is **not certified 100% production ready**. Automated OTA is absent, and deployment-specific cloud, hardware, capacity and recovery acceptance remains outstanding. The single Render instance has a planned API interruption on release and is not a highly available architecture. Do not claim these gaps are covered by unit tests or a successful Docker build.
+The code now has a substantially stronger tested local release path. It is **not certified 100% production ready**. Automated OTA is absent, and deployment-specific cloud, hardware, capacity and recovery acceptance remains outstanding. The web role can be replicated on a paid Render plan, but the MQTT worker intentionally remains a singleton and is not highly available. Do not claim these gaps are covered by unit tests or a successful Docker build.
 
 ## Corrections made
 

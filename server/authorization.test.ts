@@ -82,6 +82,7 @@ describe("role based access control", () => {
     const engineer = appRouter.createCaller(contextFor("engineer"));
     await expect(engineer.users.list()).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(engineer.notifications.getConfigs()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(engineer.system.setDemoData({ enabled: true })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(engineer.users.create({ email: "unauthorized@example.com", name: "Blocked", password: "Blocked-password-123!", role: "admin" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });

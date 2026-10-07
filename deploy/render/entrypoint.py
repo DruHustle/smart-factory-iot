@@ -32,25 +32,45 @@ def configure():
     port = int(os.environ.get('PORT', '10000'))
     if not 1024 <= port <= 65535 or port in range(3102, 3107):
         raise ValueError('Render PORT must be unprivileged and distinct from the private service ports')
+    role = os.environ.get('RENDER_SERVICE_ROLE', 'all').strip().lower()
+    if role not in ('all', 'web', 'worker'):
+        raise ValueError('RENDER_SERVICE_ROLE must be all, web, or worker')
+    web_enabled = role in ('all', 'web')
+    worker_enabled = role in ('all', 'worker')
     os.environ['PORT'] = str(port)
-    os.environ['INTERNAL_TELEMETRY_SINK_URL'] = f'http://127.0.0.1:{port}/api/internal/telemetry'
+    os.environ['WEB_AUTOSTART'] = 'true' if web_enabled else 'false'
+    os.environ['WORKER_AUTOSTART'] = 'true' if worker_enabled else 'false'
+    os.environ['TELEMETRY_PORT'] = str(port if role == 'worker' else 3103)
+    os.environ['BUNDLE_SERVICE_PORTS'] = '3102,3104,3105' if role == 'web' else '3102,3103,3104,3105,3106'
+    if role == 'worker':
+        api_origin = os.environ.get('DASHBOARD_API_ORIGIN', '').rstrip('/')
+        parsed_api = urlparse(api_origin)
+        if parsed_api.scheme != 'https' or not parsed_api.hostname or parsed_api.path not in ('', '/') or parsed_api.username or parsed_api.password:
+            raise ValueError('DASHBOARD_API_ORIGIN must be the public HTTPS web-service origin')
+        os.environ['INTERNAL_TELEMETRY_SINK_URL'] = api_origin + '/api/internal/telemetry'
+    else:
+        os.environ['INTERNAL_TELEMETRY_SINK_URL'] = f'http://127.0.0.1:{port}/api/internal/telemetry'
     os.environ['AAS_PROVISIONING_API_URL'] = 'http://127.0.0.1:3102/api/assets'
-    required = ['DATABASE_URL', 'DATABASE_CA_CERT', 'REDIS_URL', 'JWT_SECRET',
-                'DEVICE_DATABASE_CONNECTION', 'TELEMETRY_DATABASE_CONNECTION',
-                'AAS_PROVISIONING_TOKEN', 'INGESTION_API_TOKEN', 'DASHBOARD_SERVICE_TOKEN', 'ALLOWED_ORIGIN',
-                'MqttBrokerHost', 'MqttUsername', 'MqttPassword', 'MqttClientId']
+    required = ['DATABASE_URL', 'DATABASE_CA_CERT', 'INGESTION_API_TOKEN', 'DASHBOARD_SERVICE_TOKEN']
+    if web_enabled:
+        required += ['REDIS_URL', 'JWT_SECRET', 'DEVICE_DATABASE_CONNECTION',
+                     'AAS_PROVISIONING_TOKEN', 'ALLOWED_ORIGIN',
+                     'MqttBrokerHost', 'MqttUsername', 'MqttPassword']
+    if worker_enabled:
+        required += ['TELEMETRY_DATABASE_CONNECTION', 'MqttBrokerHost', 'MqttUsername', 'MqttPassword', 'MqttClientId']
     missing = [name for name in required if not os.environ.get(name)]
     if missing:
         raise ValueError('Missing runtime configuration: ' + ', '.join(missing))
     for name in ('JWT_SECRET', 'AAS_PROVISIONING_TOKEN', 'INGESTION_API_TOKEN', 'DASHBOARD_SERVICE_TOKEN'):
-        if len(os.environ[name].encode()) < 32:
+        if name in os.environ and len(os.environ[name].encode()) < 32:
             raise ValueError(name + ' must contain at least 32 bytes')
     # Npgsql uses a file; Node uses the same provider CA from its environment.
     ca_path = Path('/tmp/smart-factory-aiven-ca.pem')
     ca_path.write_text(os.environ['DATABASE_CA_CERT'].replace('\\n', '\n'))
     ca_path.chmod(0o600)
     for name in ('DEVICE_DATABASE_CONNECTION', 'TELEMETRY_DATABASE_CONNECTION'):
-        os.environ[name] = os.environ[name].replace('/run/secrets/aiven-ca.pem', str(ca_path))
+        if name in os.environ:
+            os.environ[name] = os.environ[name].replace('/run/secrets/aiven-ca.pem', str(ca_path))
     url = urlparse(os.environ['DATABASE_URL'])
     if url.scheme not in ('postgres', 'postgresql') or not url.hostname or not url.path.strip('/'):
         raise ValueError('DATABASE_URL must identify the dashboard PostgreSQL database')
@@ -65,35 +85,39 @@ def configure():
     os.environ['DASHBOARD_DATABASE_CONNECTION'] = ';'.join(key + '=' + quote(value) for key, value in settings.items())
     # Pass connection strings through the environment, never Supervisor's quoted
     # configuration syntax (passwords may contain quotes, commas or percent signs).
-    os.environ['ConnectionStrings__DefaultConnection'] = os.environ['DEVICE_DATABASE_CONNECTION']
-    os.environ['PostgresConnectionString'] = os.environ['TELEMETRY_DATABASE_CONNECTION']
+    if web_enabled:
+        os.environ['ConnectionStrings__DefaultConnection'] = os.environ['DEVICE_DATABASE_CONNECTION']
+    if worker_enabled:
+        os.environ['PostgresConnectionString'] = os.environ['TELEMETRY_DATABASE_CONNECTION']
     os.environ['MqttUseTls'] = 'true' if os.environ.get('DOTNET_ENVIRONMENT', 'Production') == 'Production' else os.environ.get('MqttUseTls', 'false')
     # Production defaults remain off, but an explicit Render setting can enable
     # the public demo identities and simulated dataset for a demonstration tenant.
     os.environ.setdefault('ENABLE_DEMO_ACCOUNTS', 'false')
     os.environ.setdefault('ENABLE_DEMO_DATA', 'false')
-    return port
+    return port, role
 
-def migrate_databases():
+def migrate_databases(role='all'):
     """Apply idempotent migrations before any service begins accepting work."""
-    subprocess.run(['node', 'scripts/migrate-dashboard.mjs'], cwd='/app', check=True)
-    telemetry_env = {**os.environ, 'PostgresConnectionString': os.environ['TELEMETRY_DATABASE_CONNECTION']}
-    subprocess.run(['dotnet', '/services/telemetry/TelemetryService.dll', '--migrate'], env=telemetry_env, check=True)
-    device_env = {
-        **os.environ,
-        'ConnectionStrings__DefaultConnection': os.environ['DEVICE_DATABASE_CONNECTION'],
-        'MIGRATION_ONLY': 'true',
-        'APPLY_DATABASE_MIGRATIONS': 'true',
-    }
-    subprocess.run(['dotnet', '/services/device/DeviceService.dll'], env=device_env, check=True)
+    if role in ('all', 'web'):
+        subprocess.run(['node', 'scripts/migrate-dashboard.mjs'], cwd='/app', check=True)
+        device_env = {
+            **os.environ,
+            'ConnectionStrings__DefaultConnection': os.environ['DEVICE_DATABASE_CONNECTION'],
+            'MIGRATION_ONLY': 'true',
+            'APPLY_DATABASE_MIGRATIONS': 'true',
+        }
+        subprocess.run(['dotnet', '/services/device/DeviceService.dll'], env=device_env, check=True)
+    if role in ('all', 'worker'):
+        telemetry_env = {**os.environ, 'PostgresConnectionString': os.environ['TELEMETRY_DATABASE_CONNECTION']}
+        subprocess.run(['dotnet', '/services/telemetry/TelemetryService.dll', '--migrate'], env=telemetry_env, check=True)
 
 if __name__ == '__main__':
     startup_server = None
     startup_thread = None
     try:
-        port = configure()
+        port, role = configure()
         startup_server, startup_thread = start_startup_server(port)
-        migrate_databases()
+        migrate_databases(role)
         startup_server.shutdown()
         startup_server.server_close()
         startup_thread.join()
