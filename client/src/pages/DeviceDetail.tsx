@@ -33,7 +33,7 @@ import {
   AlertTriangle,
   WifiOff,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { format } from "date-fns";
 import {
@@ -146,9 +146,10 @@ export default function DeviceDetail() {
     { enabled: !!device && canViewEngineering(user?.role) }
   );
 
+  const isWrover = device?.deviceId === "esp32-wrover-01";
   const { data: latestReading } = trpc.readings.getLatest.useQuery(
     { deviceId },
-    { enabled: !!device, refetchInterval: 10000 }
+    { enabled: !!device, refetchInterval: isWrover ? 1000 : 10000 }
   );
   const { data: connectedDevices = [], isLoading: connectedDevicesLoading, isError: connectedDevicesError, refetch: refetchConnectedDevices } = trpc.devices.getConnectedDevices.useQuery(
     { id: deviceId },
@@ -165,7 +166,18 @@ export default function DeviceDetail() {
   const signals = latestReading?.assetSignals as Record<string, number> | null | undefined;
   const buttonPressed = signals?.buttonPressed === 1;
   const buttonPressCount = signals?.buttonPressCount;
-  const isWrover = device?.deviceId === "esp32-wrover-01";
+  const [recentButtonPress, setRecentButtonPress] = useState(false);
+  const observedButtonPressCount = useRef<number | null>(null);
+  useEffect(() => {
+    if (typeof buttonPressCount !== "number") return;
+    const previous = observedButtonPressCount.current;
+    observedButtonPressCount.current = buttonPressCount;
+    if (previous === null || buttonPressCount <= previous) return;
+    setRecentButtonPress(true);
+    const releaseIndicator = window.setTimeout(() => setRecentButtonPress(false), 1500);
+    return () => window.clearTimeout(releaseIndicator);
+  }, [buttonPressCount]);
+  const displayedButtonPressed = buttonPressed || recentButtonPress;
   const wroverGatewayId = typeof device?.metadata?.gatewayId === "string" ? device.metadata.gatewayId : null;
   const wroverSensorReadError = device?.metadata?.sensorStatus === "read_error";
   const latestSampleAt = telemetrySampleDate(latestReading?.timestamp);
@@ -432,7 +444,7 @@ export default function DeviceDetail() {
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10"><MousePointerClick className="h-5 w-5 text-primary" /></div>
-                <div><p className="text-2xl font-bold">{buttonPressed ? "Pressed" : "Released"}</p><p className="text-xs text-muted-foreground">Physical button · {buttonPressCount} press{buttonPressCount === 1 ? "" : "es"}</p></div>
+                <div aria-live="polite"><p className="text-2xl font-bold">{displayedButtonPressed ? "Pressed" : "Released"}</p><p className="text-xs text-muted-foreground">Physical button · {buttonPressCount} press{buttonPressCount === 1 ? "" : "es"}</p></div>
               </div>
             </CardContent>
           </Card>
