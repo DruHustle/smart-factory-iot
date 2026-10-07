@@ -24,6 +24,7 @@ const {
   sensorReadings,
   alertThresholds,
   alerts,
+  notificationInbox,
   firmwareVersions,
   otaDeployments,
 } = schema;
@@ -198,6 +199,18 @@ export async function createUser(user: InsertUser) {
     await db.insert(users).values(user);
     return getUserByEmail(user.email!);
   });
+}
+
+export async function enqueueWelcomeEmail(user: Pick<User, "id" | "name" | "email">) {
+  if (!user.email) return;
+  const greeting = user.name?.trim() ? `Hello ${user.name.trim()},` : "Hello,";
+  await withDb(async (db) => db.insert(notificationInbox).values({
+    alertId: null,
+    userId: user.id,
+    kind: "account_welcome",
+    title: "Welcome to Smart Factory IoT",
+    body: `${greeting}\n\nYour Smart Factory IoT account has been created.\n\nOpen the application: https://smart-factory-iot-app.vercel.app\n\nFor security, this email does not contain your password. If you did not expect this account, contact your system administrator.\n\nSmart Factory IoT`,
+  }));
 }
 
 export async function listUsers() {

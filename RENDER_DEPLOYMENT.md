@@ -11,7 +11,7 @@ This is the canonical deployment guide for all three repositories. Production ru
 | TelemetryService | `127.0.0.1:3103` health only | Persistent MQTT intake, PostgreSQL storage and retryable dashboard/event delivery |
 | IdentityService | `127.0.0.1:3104` | Current dashboard profile/role checks; no separate account store or Entra login |
 | AnalyticsService | `127.0.0.1:3105` | SQL sample coverage, gaps and null-safe metrics for selected assets |
-| NotificationService | `127.0.0.1:3106` | Durable incident inbox delivery through Resend |
+| NotificationService | `127.0.0.1:3106` | Durable incident and account-email delivery through SES or Resend |
 
 Outside Render, the Oracle VM runs the AAS Repository, AAS Registry, Submodel Repository, Submodel Registry, Concept Description Repository, and AASX File Server. Caddy exposes HTTPS component paths and the client-credentials token endpoint; ports 8081–8086 bind to loopback. These services share the dedicated Aiven `basyx` database.
 
@@ -91,13 +91,15 @@ Infrastructure code lives in the backend repository under `deploy/terraform/orac
 
 On the VM, copy the Compose directory, create its untracked `.env`, and set the Aiven host/port, dedicated `basyx_service` user/password/database, OAuth client ID/secret, and separate gateway bearer token. Run `docker compose run --rm configuration` once, then `docker compose up -d`, and verify each `/description` route through HTTPS. Point Render's six AAS component URLs and token URL at the Caddy paths. Keep 8081–8086 loopback-only, restrict SSH, rotate bootstrap secrets, back up Aiven, and validate create/import/delete/profile flows before plant use.
 
-## Resend email
+## Transactional email
 
-The inbox works without email delivery. Enable Resend by configuring **all** of `RESEND_API_KEY`, `RESEND_FROM` and `RESEND_ALLOWED_RECIPIENT_DOMAINS` (comma-separated). Partial credentials fail startup. Verify the sender domain in Resend, keep the API key server-only, and restrict recipients to the intended company domains. Delivery requests use a stable per-notification idempotency key. This is a mail integration; dashboard login still uses existing accounts.
+The inbox and account creation work without email delivery. For Amazon SES set `EMAIL_PROVIDER=ses`, `SES_ENABLED=true`, `SES_REGION`, and `SES_FROM`. Install only a least-privilege IAM access key permitted to call `ses:SendEmail` from the verified identity; never install root credentials. While SES is sandboxed, keep `SES_ALLOW_ALL_RECIPIENTS=false` and list only verified test addresses in `SES_ALLOWED_RECIPIENTS`. After production access is approved, explicitly set `SES_ALLOW_ALL_RECIPIENTS=true` to deliver account mail to arbitrary registered users. `SES_ALLOWED_RECIPIENT_DOMAINS` can retain a narrower technician policy where required.
+
+Resend remains available by setting `EMAIL_PROVIDER=resend` and configuring all of `RESEND_API_KEY`, `RESEND_FROM`, and `RESEND_ALLOWED_RECIPIENT_DOMAINS`. Partial provider configuration fails closed. All credentials remain server-side.
 
 Emails go only to current engineer/admin dashboard accounts on explicitly allowed domains. The sender is fixed server-side. Incident insertion and assignment/resolution updates enqueue inbox records in the same PostgreSQL transaction via migration 0013. The worker claims jobs with a lease, retries up to eight failed attempts with bounded backoff, and retains failed requests. Authorized owners can retry eligible requests after configuration is corrected. Unconfigured or unauthorized recipients are displayed explicitly.
 
-Resend `200`/`201` responses are recorded as **accepted**, never as confirmed mailbox delivery. Requests include a stable notification-specific idempotency key to suppress duplicates during retries, plus the application notification ID as a custom header for correlation. Validate the verified sender domain, recipient restrictions, throttling and a controlled test mailbox in staging before enabling factory notifications.
+Provider acceptance is recorded as **accepted**, never as confirmed mailbox delivery. Messages include the application notification ID as a custom header for correlation. Resend requests also use its idempotency key; SES delivery is at least once and a retry after an ambiguous timeout can duplicate a message. Validate the verified sender identity, recipient restrictions, throttling and a controlled test mailbox before enabling factory notifications.
 
 ## Vercel settings
 

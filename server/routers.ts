@@ -163,6 +163,9 @@ export const appRouter = router({
           role: "viewer",
         });
 
+        await db.enqueueWelcomeEmail(user).catch((error) =>
+          console.error("[Email] Could not queue account welcome message:", error instanceof Error ? error.message : "unknown error"));
+
         const token = await sdk.createSessionToken(user);
         ctx.res.cookie(COOKIE_NAME, token, getSessionCookieOptions(ctx.req));
         return { user: publicUser(user) };
@@ -471,7 +474,10 @@ export const appRouter = router({
     create: adminProcedure.input(z.object({ email: z.string().email().max(320), name: z.string().trim().min(1).max(255), password: newPasswordInput,
       role: z.enum(["viewer", "operator", "engineer", "admin"]).default("viewer") })).mutation(async ({ input }) => {
       if (await db.getUserByEmail(input.email)) throw new TRPCError({ code: "CONFLICT", message: "This account already exists" });
-      return publicUser(await db.createUser({ ...input, password: await sdk.hashPassword(input.password), openId: randomUUID() }));
+      const user = await db.createUser({ ...input, password: await sdk.hashPassword(input.password), openId: randomUUID() });
+      await db.enqueueWelcomeEmail(user).catch((error) =>
+        console.error("[Email] Could not queue account welcome message:", error instanceof Error ? error.message : "unknown error"));
+      return publicUser(user);
     }),
     setRole: adminProcedure
       .input(z.object({ id: z.number(), role: z.enum(["viewer", "operator", "engineer", "admin"]) }))

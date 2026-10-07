@@ -1,0 +1,1 @@
+ALTER TABLE "notification_inbox" ALTER COLUMN "alertId" DROP NOT NULL;

@@ -218,10 +218,10 @@ export const alerts = pgTable("alerts", {
 export type Alert = typeof alerts.$inferSelect;
 export type InsertAlert = typeof alerts.$inferInsert;
 
-/** Durable per-user incident inbox and Resend delivery queue. */
+/** Durable per-user incident inbox and transactional email delivery queue. */
 export const notificationInbox = pgTable("notification_inbox", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
-  alertId: integer("alertId").notNull().references(() => alerts.id, { onDelete: "cascade" }),
+  alertId: integer("alertId").references(() => alerts.id, { onDelete: "cascade" }),
   userId: integer("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
   kind: varchar("kind", { length: 32 }).notNull(),
   title: text("title").notNull(),

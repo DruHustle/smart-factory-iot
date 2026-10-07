@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Factory, Lock, Mail, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Factory, Lock, Mail, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -23,7 +23,13 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { data: demoAccounts = [] } = trpc.auth.demoAccounts.useQuery();
+  const demoAccountsQuery = trpc.auth.demoAccounts.useQuery(undefined, {
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1_000 * 2 ** attempt, 5_000),
+    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+  });
+  const demoAccounts = demoAccountsQuery.data ?? [];
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,7 +155,33 @@ export default function Login() {
           </div>
 
           {/* Demo Accounts Section */}
-          {demoAccounts.length > 0 && <div className="space-y-3">
+          {demoAccountsQuery.isLoading && (
+            <p className="text-xs text-center text-muted-foreground" role="status">
+              Loading demo accounts…
+            </p>
+          )}
+
+          {demoAccountsQuery.isError && (
+            <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/10 p-3" role="alert">
+              <div className="flex items-start gap-2 text-xs text-destructive">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>Demo accounts are temporarily unavailable. Your accounts have not been removed.</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={demoAccountsQuery.isFetching}
+                onClick={() => void demoAccountsQuery.refetch()}
+                className="w-full text-xs border-white/20 hover:bg-white/10"
+              >
+                <RefreshCw className={`mr-2 h-3.5 w-3.5 ${demoAccountsQuery.isFetching ? "animate-spin" : ""}`} />
+                {demoAccountsQuery.isFetching ? "Retrying…" : "Retry demo accounts"}
+              </Button>
+            </div>
+          )}
+
+          {demoAccountsQuery.isSuccess && demoAccounts.length > 0 && <div className="space-y-3">
             <p className="text-xs text-center text-muted-foreground">
               Demo Accounts (click to fill):
             </p>
