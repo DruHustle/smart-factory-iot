@@ -125,7 +125,7 @@ export default function Devices() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Device Connectivity</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Gateway & Edge Device Connectivity</h1>
           <p className="text-muted-foreground">
             Register gateways and edge devices, then monitor their connectivity.
           </p>
@@ -133,7 +133,7 @@ export default function Devices() {
         {canViewEngineering(user?.role) && (
           <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Register Device
+            Register Gateway or Edge Device
           </Button>
         )}
       </div>

@@ -52,11 +52,13 @@ export default function CreateDeviceDialog({ open, onOpenChange, onSuccess }: Cr
     createMutation.mutate(values);
   };
 
+  const isGateway = form.watch("type") === "gateway";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>Register device</DialogTitle>
+          <DialogTitle>Register gateway or edge device</DialogTitle>
           <DialogDescription>
             Register a gateway or an edge device. Industrial machines remain AAS assets and can be connected to a gateway from their AAS page.
           </DialogDescription>
@@ -67,10 +69,10 @@ export default function CreateDeviceDialog({ open, onOpenChange, onSuccess }: Cr
               <FormLabel>Device type</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="gateway">Gateway</SelectItem><SelectItem value="edge_device">Edge Device</SelectItem></SelectContent></Select><FormMessage />
             </FormItem>} />
             <FormField control={form.control} name="deviceId" render={({ field }) => <FormItem>
-              <FormLabel>Device ID</FormLabel><FormControl><Input placeholder={form.watch("type") === "gateway" ? "pi-edge-01" : "edge-device-01"} autoComplete="off" {...field} /></FormControl><FormMessage />
+              <FormLabel>{isGateway ? "Gateway ID" : "Edge device ID"}</FormLabel><FormControl><Input placeholder={isGateway ? "pi-edge-01" : "edge-device-01"} autoComplete="off" {...field} /></FormControl><FormMessage />
             </FormItem>} />
             <FormField control={form.control} name="name" render={({ field }) => <FormItem>
-              <FormLabel>Device name</FormLabel><FormControl><Input placeholder={form.watch("type") === "gateway" ? "Plant A Gateway" : "Line 1 Edge Device"} {...field} /></FormControl><FormMessage />
+              <FormLabel>{isGateway ? "Gateway name" : "Edge device name"}</FormLabel><FormControl><Input placeholder={isGateway ? "Plant A Gateway" : "Line 1 Edge Device"} {...field} /></FormControl><FormMessage />
             </FormItem>} />
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField control={form.control} name="zone" render={({ field }) => <FormItem>
@@ -82,7 +84,7 @@ export default function CreateDeviceDialog({ open, onOpenChange, onSuccess }: Cr
             </div>
             <DialogFooter className="pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-              <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Registering…" : "Register Device"}</Button>
+              <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Registering…" : isGateway ? "Register Gateway" : "Register Edge Device"}</Button>
             </DialogFooter>
           </form>
         </Form>
