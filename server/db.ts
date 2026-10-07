@@ -11,6 +11,7 @@ import { getAllowedAssetTransitions, type AssetLifecycleStage } from "../shared/
 import { getAlertErrorCode } from "../shared/alert-codes";
 import { evaluateAlertThreshold } from "../shared/alert-thresholds";
 import { deviceWithCurrentStatus } from "./deviceConnectivity";
+import { visibleWhenDemoDataEnabled } from "./demoData";
 
 const {
   users,
@@ -256,7 +257,8 @@ export async function getDevices(filters?: {
     const finalQuery = conditions.length > 0 ? query.where(and(...conditions)) : query;
     const rows = await finalQuery.orderBy(desc(devices.updatedAt));
     const now = Date.now();
-    const current = rows.map((row) => deviceWithCurrentStatus(row, now));
+    const visibleRows = rows.filter((row) => visibleWhenDemoDataEnabled(row));
+    const current = visibleRows.map((row) => deviceWithCurrentStatus(row, now));
     return filters?.status ? current.filter((row) => row.status === filters.status) : current;
   });
 }
@@ -264,14 +266,17 @@ export async function getDevices(filters?: {
 export async function getDeviceById(id: number): Promise<Device | undefined> {
   return withDb(async (db) => {
     const result = await db.select().from(devices).where(eq(devices.id, id)).limit(1);
-    return result[0] ? deviceWithCurrentStatus(result[0]) : undefined;
+    const device = result[0];
+    if (!device || !visibleWhenDemoDataEnabled(device)) return undefined;
+    return deviceWithCurrentStatus(device);
   });
 }
 
 export async function getDeviceByDeviceId(deviceId: string): Promise<Device | undefined> {
   return withDb(async (db) => {
     const result = await db.select().from(devices).where(eq(devices.deviceId, deviceId)).limit(1);
-    return result[0];
+    const device = result[0];
+    return device && visibleWhenDemoDataEnabled(device) ? device : undefined;
   });
 }
 
@@ -282,7 +287,9 @@ export async function getDevicesForGateway(gatewayDeviceId: string): Promise<Dev
       .where(sql`${devices.metadata}->>'gatewayId' = ${gatewayDeviceId}`)
       .orderBy(asc(devices.name));
     const now = Date.now();
-    return rows.map((row) => deviceWithCurrentStatus(row, now));
+    return rows
+      .filter((row) => visibleWhenDemoDataEnabled(row))
+      .map((row) => deviceWithCurrentStatus(row, now));
   });
 }
 
@@ -328,7 +335,10 @@ export async function deleteDevice(id: number): Promise<boolean> {
 export async function getDeviceStats() {
   return withDb(async (db) => {
     const now = Date.now();
-    const allDevices = (await db.select().from(devices)).map((device) => deviceWithCurrentStatus(device, now));
+    const rows = await db.select().from(devices);
+    const allDevices = rows
+      .filter((device) => visibleWhenDemoDataEnabled(device))
+      .map((device) => deviceWithCurrentStatus(device, now));
     const stats = {
       total: allDevices.length,
       online: allDevices.filter(d => d.status === 'online').length,
@@ -364,7 +374,8 @@ export async function recordDeviceHeartbeat(input: { deviceId: string; timestamp
 
 // ============ Asset Administration Shell Functions ============
 export async function getAssets() {
-  return withDb(async (db) => db.select({
+  return withDb(async (db) => {
+    const rows = await db.select({
     id: assets.id,
     assetId: assets.assetId,
     name: assets.name,
@@ -388,7 +399,9 @@ export async function getAssets() {
     aasxImported: assets.aasxImported,
     createdAt: assets.createdAt,
     updatedAt: assets.updatedAt,
-  }).from(assets).orderBy(asc(assets.name)));
+    }).from(assets).orderBy(asc(assets.name));
+    return rows.filter((asset) => visibleWhenDemoDataEnabled(asset));
+  });
 }
 
 export async function getAssetById(id: number) {
@@ -419,14 +432,14 @@ export async function getAssetById(id: number) {
       createdAt: assets.createdAt,
       updatedAt: assets.updatedAt,
     }).from(assets).where(eq(assets.id, id)).limit(1);
-    return asset;
+    return asset && visibleWhenDemoDataEnabled(asset) ? asset : undefined;
   });
 }
 
 export async function getAssetRecordById(id: number) {
   return withDb(async (db) => {
     const [asset] = await db.select().from(assets).where(eq(assets.id, id)).limit(1);
-    return asset;
+    return asset && visibleWhenDemoDataEnabled(asset) ? asset : undefined;
   });
 }
 
@@ -1164,7 +1177,7 @@ export async function getAssetTelemetry(
     };
     if (requestedAssetIds.length === 0) return emptyResult;
 
-    const assetRecords = await db.select({
+    const selectedAssetRecords = await db.select({
       id: assets.id,
       assetId: assets.assetId,
       name: assets.name,
@@ -1175,6 +1188,7 @@ export async function getAssetTelemetry(
       lifecycleStage: assets.lifecycleStage,
       isDemo: assets.isDemo,
     }).from(assets).where(inArray(assets.assetId, requestedAssetIds));
+    const assetRecords = selectedAssetRecords.filter((asset) => visibleWhenDemoDataEnabled(asset));
     if (assetRecords.length === 0) return emptyResult;
 
     const assetIds = assetRecords.map((asset) => asset.assetId);

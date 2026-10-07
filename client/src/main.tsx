@@ -1,9 +1,10 @@
 import { trpc } from "@/lib/trpc";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import { safeLocalStorage, safeSessionStorage } from "@/lib/storage";
+import { announceSessionExpired, isUnauthorizedError } from "@/lib/session-expiry";
 import App from "./App";
 import "./index.css";
 
@@ -12,7 +13,19 @@ import "./index.css";
 safeLocalStorage.removeItem("token");
 safeSessionStorage.removeItem("token");
 
-const queryClient = new QueryClient();
+function handleProtectedRequestError(error: unknown) {
+  if (!isUnauthorizedError(error)) return;
+  // A protected query can otherwise keep rendering its last successful data
+  // after the HttpOnly session cookie expires. Clear the entire authenticated
+  // cache before returning the application to the login shell.
+  queryClient.clear();
+  announceSessionExpired();
+}
+
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({ onError: handleProtectedRequestError }),
+  mutationCache: new MutationCache({ onError: handleProtectedRequestError }),
+});
 
 const getTRPCUrl = () => {
   const apiUrl = import.meta.env.VITE_API_URL;

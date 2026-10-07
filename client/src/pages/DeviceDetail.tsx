@@ -29,6 +29,9 @@ import {
   Layers,
   Cpu,
   ChevronRight,
+  CircleCheck,
+  AlertTriangle,
+  WifiOff,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useLocation, useParams } from "wouter";
@@ -127,7 +130,7 @@ export default function DeviceDetail() {
 
   const { data: device, isLoading: deviceLoading, isError: deviceError, refetch: refetchDevice } = trpc.devices.getById.useQuery({
     id: deviceId,
-  });
+  }, { refetchInterval: 10000 });
   const { data: asset } = trpc.assets.getForDevice.useQuery(
     { devicePk: deviceId },
     { enabled: !!device }
@@ -163,6 +166,14 @@ export default function DeviceDetail() {
   const buttonPressed = signals?.buttonPressed === 1;
   const buttonPressCount = signals?.buttonPressCount;
   const isWrover = device?.deviceId === "esp32-wrover-01";
+  const wroverGatewayId = typeof device?.metadata?.gatewayId === "string" ? device.metadata.gatewayId : null;
+  const wroverSensorReadError = device?.metadata?.sensorStatus === "read_error";
+  const latestSampleAt = telemetrySampleDate(latestReading?.timestamp);
+  const wroverSampleFresh = latestSampleAt !== null && Date.now() - latestSampleAt.getTime() <= 120_000;
+  const wroverHealth = !isWrover ? null
+    : device?.status !== "online" || !wroverSampleFresh ? "offline"
+    : wroverSensorReadError || !wroverGatewayId ? "degraded"
+    : "healthy";
 
   const chartData = useMemo(() => {
     if (!readings) return [];
@@ -265,6 +276,36 @@ export default function DeviceDetail() {
           <ExportButton onExportHtml={handleExport} label="Export Report" />
         </div>
       </div>
+
+      {isWrover && wroverHealth === "healthy" && (
+        <div role="status" aria-live="polite" className="flex items-start gap-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4">
+          <CircleCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+          <div>
+            <p className="font-semibold text-emerald-800 dark:text-emerald-300">WROVER healthy</p>
+            <p className="mt-1 text-sm text-muted-foreground">Fresh telemetry and sensor reads are arriving through gateway <span className="font-mono">{wroverGatewayId}</span>. {latestSampleAt && telemetryFreshness(latestSampleAt.getTime())}.</p>
+          </div>
+        </div>
+      )}
+
+      {isWrover && wroverHealth === "degraded" && (
+        <div role="alert" className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+          <div>
+            <p className="font-semibold">WROVER health degraded</p>
+            <p className="mt-1 text-sm text-muted-foreground">{wroverSensorReadError ? "The latest DHT11 read failed. Check sensor power, data wiring, and its pull-up resistor." : "No parent gateway is recorded for this WROVER."}</p>
+          </div>
+        </div>
+      )}
+
+      {isWrover && wroverHealth === "offline" && (
+        <div role="alert" aria-live="assertive" className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
+          <WifiOff className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+          <div>
+            <p className="font-semibold text-destructive">WROVER offline</p>
+            <p className="mt-1 text-sm text-muted-foreground">{latestSampleAt ? `No fresh telemetry. ${telemetryFreshness(latestSampleAt.getTime())}.` : "No telemetry has been received."} Check WROVER power, Wi-Fi, and its Pi-local MQTT connection{wroverGatewayId ? ` through ${wroverGatewayId}` : ""}.</p>
+          </div>
+        </div>
+      )}
 
       {device.type === "gateway" && (
         <Card>
@@ -382,7 +423,7 @@ export default function DeviceDetail() {
                 <div className="p-2 rounded-lg bg-amber-500/10"><Lightbulb className="h-5 w-5 text-amber-500" /></div>
                 <div><p className="font-semibold">Indicator LED</p><p className="text-xs text-muted-foreground">GPIO18 · two-second pulse</p></div>
               </div>
-              {canViewEngineering(user?.role) && <Button size="sm" disabled={pulseIndicator.isPending} onClick={() => pulseIndicator.mutate({ id: deviceId })}>{pulseIndicator.isPending ? "Sending…" : "Light LED"}</Button>}
+              {canViewEngineering(user?.role) && <Button size="sm" disabled={pulseIndicator.isPending || wroverHealth !== "healthy"} onClick={() => pulseIndicator.mutate({ id: deviceId })}>{pulseIndicator.isPending ? "Sending…" : "Pulse GPIO18"}</Button>}
             </CardContent>
           </Card>
         )}

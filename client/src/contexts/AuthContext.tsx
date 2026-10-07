@@ -6,6 +6,7 @@ import {
   getCurrentUser,
 } from "@/lib/api-auth";
 import type { User } from "../../../drizzle/schema";
+import { SESSION_EXPIRED_EVENT } from "@/lib/session-expiry";
 type PublicUser = Omit<User, "password">;
 
 interface AuthContextType {
@@ -41,6 +42,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     initializeAuth();
+  }, []);
+
+  useEffect(() => {
+    const expireSession = () => setUser(null);
+    window.addEventListener(SESSION_EXPIRED_EVENT, expireSession);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, expireSession);
   }, []);
 
   const login = async (email: string, password: string) => {
