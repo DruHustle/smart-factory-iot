@@ -71,6 +71,24 @@ const metricColors = {
   pressure: "#ec4899",
 };
 
+const metricUnits: Record<keyof typeof metricColors, string> = {
+  temperature: "°C",
+  humidity: "% RH",
+  vibration: "mm/s",
+  power: "W",
+  rpm: "rpm",
+  pressure: "asset unit",
+};
+
+const metricAxisPadding: Record<keyof typeof metricColors, number> = {
+  temperature: 0.5,
+  humidity: 1,
+  vibration: 0.1,
+  power: 10,
+  rpm: 10,
+  pressure: 0.1,
+};
+
 type TimeRange = "1h" | "6h" | "24h" | "7d" | "30d" | "custom";
 
 function telemetrySampleDate(timestamp: number | null | undefined) {
@@ -620,7 +638,22 @@ export default function DeviceDetail() {
                   stroke="var(--muted-foreground)"
                   fontSize={12}
                 />
-                <YAxis stroke="var(--muted-foreground)" fontSize={12} />
+                {selectedMetrics.map((metric, index) => {
+                  const key = metric as keyof typeof metricColors;
+                  const padding = metricAxisPadding[key];
+                  return <YAxis
+                    key={metric}
+                    yAxisId={metric}
+                    orientation={index === 1 ? "right" : "left"}
+                    hide={index > 1}
+                    stroke={metricColors[key]}
+                    fontSize={12}
+                    width={64}
+                    domain={[(minimum: number) => minimum - padding, (maximum: number) => maximum + padding]}
+                    tickFormatter={(value: number) => `${Number(value.toFixed(1))}`}
+                    label={index < 2 ? { value: metricUnits[key], angle: index === 1 ? 90 : -90, position: index === 1 ? "insideRight" : "insideLeft", fill: metricColors[key] } : undefined}
+                  />;
+                })}
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "var(--popover)",
@@ -633,13 +666,14 @@ export default function DeviceDetail() {
                 {selectedMetrics.map((metric) => (
                   <Area
                     key={metric}
+                    yAxisId={metric}
                     type="monotone"
                     dataKey={metric}
                     stroke={metricColors[metric as keyof typeof metricColors]}
                     fill={`url(#gradient-${metric})`}
                     strokeWidth={2}
                     dot={false}
-                    name={metric.charAt(0).toUpperCase() + metric.slice(1)}
+                    name={`${metric.charAt(0).toUpperCase() + metric.slice(1)} (${metricUnits[metric as keyof typeof metricUnits]})`}
                   />
                 ))}
                 </AreaChart>
