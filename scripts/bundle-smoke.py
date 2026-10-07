@@ -82,10 +82,11 @@ try:
     assert not trpc(viewer,'notifications.list',query=True)
     status,_=http(viewer,'/api/trpc/notifications.markRead',{'id':items[0]['id']}); assert status==404
     trpc(engineer,'notifications.markRead',{'id':items[0]['id']})
-    wait(lambda: sql("SELECT count(*) FROM notification_inbox WHERE \"emailStatus\"='unconfigured'") == '4')
+    wait(lambda: sql("SELECT count(*) FROM notification_inbox WHERE kind<>'account_welcome' AND \"emailStatus\"='unconfigured'") == '4')
+    assert sql("SELECT count(*) FROM notification_inbox WHERE kind='account_welcome' AND \"emailStatus\"='unconfigured'") == '3'
     run(COMPOSE+['exec','-T','bundle','supervisorctl','-c','/app/deploy/render/supervisord.conf','restart','notification'])
     assert len(trpc(engineer,'notifications.list',query=True)) == 2
-    print('PASS: incidents and assignments create durable inbox entries; ownership is enforced; unconfigured email is explicit after restart.')
+    print('PASS: incidents and account creation queue distinct durable email; inbox ownership is enforced; unconfigured delivery is explicit after restart.')
     sql(f'''INSERT INTO sensor_readings ("deviceId","assetId",temperature,power,timestamp) VALUES ({device['id']},'urn:bundle:motor',10,NULL,1000),({device['id']},'urn:bundle:motor',NULL,80,2000),({device['id']},'urn:bundle:motor',30,100,5000)''')
     coverage=trpc(engineer,'analytics.getCoverage',{'assetIds':['urn:bundle:motor'],'startTime':1,'endTime':6000,'intervalMs':60000},query=True)['assets'][0]
     assert coverage['samples']==3 and coverage['longestGapMs']==3000
