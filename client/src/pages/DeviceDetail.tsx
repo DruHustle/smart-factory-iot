@@ -443,7 +443,9 @@ export default function DeviceDetail() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10"><MousePointerClick className="h-5 w-5 text-primary" /></div>
+                <div className={`rounded-lg p-2 transition-colors duration-150 ${displayedButtonPressed ? "bg-primary" : "bg-primary/10"}`}>
+                  <MousePointerClick className={`h-5 w-5 transition-colors duration-150 ${displayedButtonPressed ? "text-primary-foreground" : "text-primary"}`} />
+                </div>
                 <div aria-live="polite"><p className="text-2xl font-bold">{displayedButtonPressed ? "Pressed" : "Released"}</p><p className="text-xs text-muted-foreground">Physical button · {buttonPressCount} press{buttonPressCount === 1 ? "" : "es"}</p></div>
               </div>
             </CardContent>
