@@ -6,11 +6,11 @@ import { sdk } from "./_core/sdk";
 import * as db from "./db";
 
 describe("demo accounts", () => {
-  it("is enabled only by an explicit non-production flag", () => {
+  it("is enabled only by the explicit flag in every environment", () => {
     expect(demoAccountsEnabled({ NODE_ENV: "development", ENABLE_DEMO_ACCOUNTS: "true" })).toBe(true);
     expect(demoAccountsEnabled({ NODE_ENV: "test", ENABLE_DEMO_ACCOUNTS: "true" })).toBe(true);
     expect(demoAccountsEnabled({ NODE_ENV: "development", ENABLE_DEMO_ACCOUNTS: "false" })).toBe(false);
-    expect(demoAccountsEnabled({ NODE_ENV: "production", ENABLE_DEMO_ACCOUNTS: "true" })).toBe(false);
+    expect(demoAccountsEnabled({ NODE_ENV: "production", ENABLE_DEMO_ACCOUNTS: "true" })).toBe(true);
   });
 
   it("provides the four requested demo roles in order", () => {

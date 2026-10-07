@@ -21,7 +21,7 @@ sequenceDiagram
   API-->>UI: Result or UNAUTHORIZED / FORBIDDEN
 ```
 
-Registration creates viewer accounts. The browser neither reads nor stores the JWT. When `ENABLE_DEMO_ACCOUNTS=true` in a non-production process, `auth.demoAccounts` returns the four development shortcuts to the login page; the server does not seed or authenticate those identities in production.
+Registration creates viewer accounts. The browser neither reads nor stores the JWT. When `ENABLE_DEMO_ACCOUNTS=true`, `auth.demoAccounts` returns the four demo shortcuts to the login page and the server seeds those identities. Enabling this in production exposes fixed credentials, including administrator access, and is supported only for an isolated demonstration tenant without sensitive data or connected equipment.
 
 ## Register an asset and open its AAS
 

@@ -77,5 +77,5 @@ export function isDemoAccount(email: string): boolean {
 }
 
 export function demoAccountsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  return env.NODE_ENV !== "production" && env.ENABLE_DEMO_ACCOUNTS === "true";
+  return env.ENABLE_DEMO_ACCOUNTS === "true";
 }

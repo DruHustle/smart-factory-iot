@@ -68,8 +68,10 @@ def configure():
     os.environ['ConnectionStrings__DefaultConnection'] = os.environ['DEVICE_DATABASE_CONNECTION']
     os.environ['PostgresConnectionString'] = os.environ['TELEMETRY_DATABASE_CONNECTION']
     os.environ['MqttUseTls'] = 'true' if os.environ.get('DOTNET_ENVIRONMENT', 'Production') == 'Production' else os.environ.get('MqttUseTls', 'false')
-    os.environ['ENABLE_DEMO_ACCOUNTS'] = 'false'
-    os.environ['ENABLE_DEMO_DATA'] = 'false'
+    # Production defaults remain off, but an explicit Render setting can enable
+    # the public demo identities and simulated dataset for a demonstration tenant.
+    os.environ.setdefault('ENABLE_DEMO_ACCOUNTS', 'false')
+    os.environ.setdefault('ENABLE_DEMO_DATA', 'false')
     return port
 
 def migrate_databases():

@@ -2,7 +2,7 @@
 
 ## Demo buttons are missing
 
-Demo shortcuts come from the API, not frontend constants. Check that NODE_ENV is not production, ENABLE_DEMO_ACCOUNTS=true, and PostgreSQL is reachable. When the flag is false, the API hides shortcuts and rejects these demo identities even if old rows remain in PostgreSQL. Restart the API after configuration changes. For a separately hosted frontend, verify VITE_API_URL and the exact ALLOWED_ORIGIN value. Buttons are Demo Viewer, Demo Operator, Demo Engineer, and Demo Admin. The local password is password123. Production intentionally suppresses these identities.
+Demo shortcuts come from the API, not frontend constants. Check that `ENABLE_DEMO_ACCOUNTS=true` and PostgreSQL is reachable. When the flag is false, the API hides shortcuts and rejects these demo identities even if old rows remain in PostgreSQL. Restart the API after configuration changes. For a separately hosted frontend, verify `VITE_API_URL` and the exact `ALLOWED_ORIGIN` value. Buttons are Demo Viewer, Demo Operator, Demo Engineer, and Demo Admin. Their shared password is `password123`. Enabling this flag in a public production environment exposes these fixed credentials, including administrator access; use it only for an intentionally public demonstration tenant with no sensitive data or connected equipment.
 
 ## Login works but refresh signs out
 
