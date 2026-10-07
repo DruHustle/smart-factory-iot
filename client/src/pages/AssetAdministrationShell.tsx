@@ -90,7 +90,7 @@ export default function AssetAdministrationShell() {
   const armConnection = connections?.find((connection) => connection.protocol === "ada031_v4_serial");
   const latestArmReadingQuery = trpc.analytics.getLatestAssetTelemetry.useQuery(
     { assetId: asset?.assetId ?? "" },
-    { enabled: allowed && !!armConnection && !!asset, refetchInterval: 3000 },
+    { enabled: allowed && !!armConnection && !!asset, refetchInterval: 500 },
   );
   const latestArmReading = latestArmReadingQuery.data;
   const telemetryEnd = useMemo(() => Date.now(), [assetId]);
@@ -324,7 +324,7 @@ export default function AssetAdministrationShell() {
             <CardTitle className="flex items-center gap-2"><Activity className="h-5 w-5" />ADA031 live telemetry & performance</CardTitle>
             <Badge className={armConnected ? "bg-success text-success-foreground" : "bg-muted text-muted-foreground"}>{armConnected ? "Connected" : "Offline"}</Badge>
           </div>
-          <p className="text-xs text-muted-foreground">Latest controller sample refreshes every 3 seconds. Historical aggregates cover the last 24 hours.</p>
+          <p className="text-xs text-muted-foreground">Latest controller movement refreshes twice per second. Historical aggregates cover the last 24 hours.</p>
         </CardHeader>
         <CardContent className="space-y-4">
           {!armConnected && <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm" role="alert">
