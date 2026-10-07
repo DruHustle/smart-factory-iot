@@ -1,0 +1,1 @@
+ALTER TYPE "public"."device_type" ADD VALUE 'edge_device';

@@ -1,19 +1,20 @@
 import { useMemo, useState } from "react";
-import { useParams } from "wouter";
+import { useLocation, useParams } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/contexts/AuthContext";
-import { canViewEngineering } from "@/lib/access";
+import { canAdministerUsers, canViewEngineering } from "@/lib/access";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Activity, AlertTriangle, ArrowDown, ArrowDownToLine, ArrowRight, ArrowUp, CalendarClock, FileJson, Printer, RefreshCw, RotateCcw, Square } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowDownToLine, ArrowRight, ArrowUp, CalendarClock, FileJson, Printer, RefreshCw, RotateCcw, Square, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { getAllowedAssetTransitions, type AssetLifecycleStage } from "../../../shared/asset-lifecycle";
 import { CreateAssetDialog } from "@/components/CreateAssetDialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 function formatValue(value: unknown) {
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
@@ -70,11 +71,13 @@ function describeAda031Command(command: Ada031Command) {
 
 export default function AssetAdministrationShell() {
   const params = useParams<{ id: string }>();
+  const [, setLocation] = useLocation();
   const assetId = Number(params.id);
   const { user } = useAuth();
   const [nextStage, setNextStage] = useState<AssetLifecycleStage | "">("");
   const [note, setNote] = useState("");
   const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [motionReady, setMotionReady] = useState(false);
   const [armCommandStatus, setArmCommandStatus] = useState<{ kind: "pending" | "accepted" | "error"; message: string } | null>(null);
   const utils = trpc.useUtils();
@@ -134,6 +137,14 @@ export default function AssetAdministrationShell() {
       ]);
     },
     onError: (error) => toast.error(error.message),
+  });
+  const deleteAas = trpc.assets.delete.useMutation({
+    onSuccess: ({ edgeSyncFailures }) => {
+      toast.success(edgeSyncFailures.length ? "AAS deleted; one or more gateways need configuration resync" : "AAS deleted");
+      void utils.assets.list.invalidate();
+      setLocation("/assets");
+    },
+    onError: (error) => toast.error(`AAS could not be deleted: ${error.message}`),
   });
 
   const currentStage = asset?.lifecycleStage;
@@ -222,6 +233,7 @@ export default function AssetAdministrationShell() {
           {!asset.isDemo && !asset.aasxImported && <Button variant="outline" onClick={() => setEditOpen(true)}><FileJson className="mr-2 h-4 w-4" />Edit asset data</Button>}
           <Button variant="outline" onClick={exportAas} disabled={!aasReady}><ArrowDownToLine className="mr-2 h-4 w-4" />Export AAS JSON</Button>
           <Button variant="outline" onClick={openPassportPrint}><Printer className="mr-2 h-4 w-4" />Print EUDPP</Button>
+          {canAdministerUsers(user?.role) && !asset.isDemo && <Button variant="destructive" onClick={() => setDeleteOpen(true)}><Trash2 className="mr-2 h-4 w-4" />Delete AAS</Button>}
         </div>
       </div>
 
@@ -469,6 +481,9 @@ export default function AssetAdministrationShell() {
         </CardContent>
       </Card>
     </div>
+    <Dialog open={deleteOpen} onOpenChange={(open) => { if (!deleteAas.isPending) setDeleteOpen(open); }}>
+      <DialogContent><DialogHeader><DialogTitle>Delete selected AAS</DialogTitle><DialogDescription>Permanently remove {asset.name} from the dashboard and BaSyx repository/registry? Historical telemetry and incident records are retained. This operation requires administrator access.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleteAas.isPending}>Cancel</Button><Button variant="destructive" onClick={() => deleteAas.mutate({ id: asset.id })} disabled={deleteAas.isPending}>{deleteAas.isPending ? "Deleting…" : "Delete AAS"}</Button></DialogFooter></DialogContent>
+    </Dialog>
     {asset && !asset.isDemo && !asset.aasxImported && <CreateAssetDialog key={asset.id} asset={asset} open={editOpen} onOpenChange={setEditOpen} />}
     </>
   );

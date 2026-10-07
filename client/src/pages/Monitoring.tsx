@@ -11,7 +11,7 @@ import { useLocation } from "wouter";
 import { getConnectivityRecordId } from "@/lib/device-display";
 
 type DeviceStatus = "online" | "offline" | "maintenance" | "error";
-type DeviceType = "sensor" | "actuator" | "controller" | "gateway";
+type DeviceType = "sensor" | "actuator" | "controller" | "gateway" | "edge_device";
 const PAGE_SIZE = 50;
 const statusColors: Record<DeviceStatus, string> = {
   online: "bg-success text-success-foreground",
@@ -24,6 +24,7 @@ const typeColors: Record<DeviceType, string> = {
   actuator: "border-chart-2/30 bg-chart-2/10 text-chart-2",
   controller: "border-chart-3/30 bg-chart-3/10 text-chart-3",
   gateway: "border-chart-4/30 bg-chart-4/10 text-chart-4",
+  edge_device: "border-chart-5/30 bg-chart-5/10 text-chart-5",
 };
 
 function sensorTypeFor(device: { metadata?: Record<string, unknown> | null }) {

@@ -84,7 +84,7 @@ Threshold-generated incidents use stable `SF-*` platform classifications. A vend
 | Table | Purpose |
 |---|---|
 | users | Local identity, bcrypt password hash in `password`, role, and sign-in timestamps. Never expose the hash in API responses. |
-| devices | Edge devices/gateways, status, location, firmware, and simulator marker. |
+| devices | Connectivity devices. New registrations use enum type `gateway` or `edge_device`; legacy sensor/actuator/controller values remain readable. Includes status, location, firmware, and simulator marker. Migration `0015_melted_dragon_lord` adds `edge_device`. |
 | assets | Equipment identity, manufacturer name/designation, separate required postal fields, article and order codes, optional serial/rated values, lifecycle, current AAS JSON, monotonic AAS revision, and simulator marker. |
 | asset_devices | Asset-to-gateway protocol, endpoint, and tag/register mappings. Store credentials on the edge gateway, not in mappings. |
 | asset_lifecycle_events | Actor, transition, timestamp, and engineering note audit history. |
@@ -95,7 +95,7 @@ Threshold-generated incidents use stable `SF-*` platform classifications. A vend
 | alert_thresholds | Enabled per-device warning and critical bands used to classify telemetry into incidents. |
 | firmware_versions, ota_deployments | Firmware catalog metadata and legacy rollout rows. OTA is disabled; a rollout row is not proof that a device downloaded, verified, installed, or booted a release. |
 
-Connection and lifecycle ids are application-level relationships, not database-enforced foreign keys in the current schema. The external AAS service owns separate storage. Demo rows are marked isDemo and are API-seeded only when demo data is enabled and no real assets exist.
+Connection and lifecycle ids are application-level relationships, not database-enforced foreign keys in the current schema. Oracle-hosted BaSyx owns separate storage in the Aiven `basyx` PostgreSQL database; it is not part of the Drizzle application schema. Demo rows are marked isDemo and are API-seeded only when demo data is enabled and no real assets exist.
 
 Review migration SQL before applying changes. Set DATABASE_URL to the intended database before running pnpm db:migrate. pnpm e2e uses its own disposable PostgreSQL container.
 

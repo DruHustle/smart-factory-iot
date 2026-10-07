@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 // `user` remains temporarily for rows created by older releases. Authorization
 // treats it as the viewer role until those accounts are explicitly upgraded.
 export const roleEnum = pgEnum("role", ["user", "viewer", "operator", "engineer", "admin"]);
-export const deviceTypeEnum = pgEnum("device_type", ["sensor", "actuator", "controller", "gateway"]);
+export const deviceTypeEnum = pgEnum("device_type", ["sensor", "actuator", "controller", "gateway", "edge_device"]);
 export const deviceStatusEnum = pgEnum("device_status", ["online", "offline", "maintenance", "error"]);
 export const assetLifecycleStageEnum = pgEnum("asset_lifecycle_stage", ["planned", "engineered", "commissioned", "operational", "maintenance", "decommissioned"]);
 export const metricEnum = pgEnum("metric", ["temperature", "humidity", "vibration", "power", "pressure", "rpm"]);

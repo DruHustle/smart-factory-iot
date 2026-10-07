@@ -10,7 +10,7 @@
 
 The Node API is the dashboard account and role authority. Dashboard sessions are HttpOnly cookies. The .NET telemetry bridge and the .NET AAS provisioner use separate service credentials. The private AAS stack has separate AAS and Submodel Repositories, AAS and Submodel Registries, a Concept Description Repository, and an AASX File Server.
 
-Production hosts the React UI on Vercel and all six backend processes in one supervised Render container. Only the Node API is public; the five .NET services bind to loopback. Aiven, Redis Cloud, CloudAMQP and the company AAS/OIDC runtime remain external. Physical Pi gateways, WROVER sensors and ADA031 controllers remain in the factory.
+Production hosts the React UI on Vercel and all six backend processes in one supervised Render container. Only the Node API is public; the five .NET services bind to loopback. Aiven, Redis Cloud and CloudAMQP remain managed external systems. The AAS runtime is a separate Oracle Cloud VM running six BaSyx services behind Caddy and a client-credentials token endpoint; it stores AAS data in the dedicated Aiven `basyx` database. Physical Pi gateways, WROVER sensors and ADA031 controllers remain in the factory.
 
 ## Request and data flow
 
@@ -39,8 +39,9 @@ flowchart TB
   Telemetry --> TelemetryDB[(Aiven telemetry PostgreSQL)]
   API --> Redis[(Redis Cloud TLS)]
   Device --> Redis
-  Device -->|OAuth and HTTPS| AAS[Company AAS runtime]
+  Device -->|OAuth and HTTPS| AAS[Oracle VM: Caddy plus six BaSyx services]
   API -->|Engineer OAuth gateway| AAS
+  AAS --> BaSyxDB[(Aiven basyx PostgreSQL)]
   subgraph OT[Factory OT network]
     Sensors[WROVER sensors] -->|Local MQTT TLS| Pi[Pi gateway with durable spool]
     Machines[Commissioned machines] -->|OPC UA Modbus serial| Pi
@@ -61,6 +62,8 @@ The deployment is one instance. An attached Render disk forces sequential restar
 A protected dashboard `main` push starts the sole production release workflow. It resolves immutable revisions for all three repositories, tests one `linux/amd64` image containing the Node API and five .NET services, publishes that exact digest, deploys it to Render, waits for readiness, and then deploys the separately prebuilt static React artifact to Vercel. The frontend is not a Docker runtime. Independent provider Git/auto-deploy paths remain disabled to prevent an untested or out-of-order release. See [Vercel/Render deployment](../RENDER_DEPLOYMENT.md) for provider configuration, migrations, source-pinned CI/CD and rollback.
 
 ## Assets and AAS
+
+The Devices page registers connectivity records as either `gateway` or `edge_device`. Both are devices; industrial equipment represented by an AAS belongs under Assets and can be mapped to a gateway.
 
 An industrial asset is distinct from an edge gateway. Quick Create sends validated equipment identity to the private DeviceService, which generates IDTA template instances, registers them with the AAS and Submodel Repositories, and returns the canonical documents for application persistence. BaSyx can register descriptors automatically with the AAS and Submodel Registries. Import Package uploads a bounded multipart `.aasx`; DeviceService validates OPC relationships and supported AAS core JSON/XML, registers each shell, submodel, and concept description, and stores the original package in the AASX File Server. The generated AAS Core 3.1 C# SDK validates models through a compatibility view for v3.2 administrative timestamps; this is not full v3.2 metamodel conformance. Node associates returned shell documents with asset rows in the same PostgreSQL database. Imported shells preserve their vendor package and cannot be overwritten through the form editor. `asset_devices` maps an asset to a gateway, protocol, endpoint, and tag/register mappings. Credentials are not stored in endpoint URLs or published mappings. Lifecycle history remains an application audit log.
 

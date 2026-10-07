@@ -23,6 +23,10 @@ sequenceDiagram
 
 Registration creates viewer accounts. The browser neither reads nor stores the JWT. When `ENABLE_DEMO_ACCOUNTS=true`, `auth.demoAccounts` returns the four demo shortcuts to the login page and the server seeds those identities. Enabling this in production exposes fixed credentials, including administrator access, and is supported only for an isolated demonstration tenant without sensitive data or connected equipment.
 
+## Register and delete connectivity devices
+
+Engineers and administrators can call `devices.create` with `type: "gateway" | "edge_device"`, a stable device ID, name, and optional location/zone. Older callers that omit `type` default to `gateway`. Only administrators can call `devices.delete`. A gateway linked to an AAS must be disconnected first; telemetry history is retained.
+
 ## Register an asset and open its AAS
 
 ### Quick Create (Form)
@@ -65,6 +69,8 @@ The UI's `assets.*` tRPC procedures expose dashboard workflows. `/api/assets/imp
 
 After a repository mutation, DeviceService publishes an `aas_changed` event to Redis Pub/Sub. Each dashboard replica fans the event out to its own authenticated WebSocket clients, so a browser connected to any replica can refresh its AAS view. Engineers and admins can export the current asset hierarchy as CAEX 3.0 from **Assets → Export AutomationML**; the export carries stable asset IDs and basic metadata but not gateway mappings.
 
+Only administrators can call `assets.delete`. It removes the selected dashboard AAS and its represented BaSyx resources, retains historical telemetry and incidents, and reports gateway resynchronization failures.
+
 ### Assistant context and provider routing
 
 ```mermaid
@@ -106,6 +112,8 @@ These are separate operations. **Edge configuration** sends the gateway a desire
 The firmware inventory page is read-only. Backend OTA submission/status endpoints return `501 Not Implemented` and do not mutate rollout state until a verified release service and authenticated device agent exist. Legacy rollout rows are historical application records, not proof of installation. Do not use software commands as emergency-stop, guarding, or other protective functions.
 
 ## Edge telemetry
+
+Connected ADA031 firmware emits controller state, cycle count, commanded targets, and movement-active signals while a program runs. The Pi publishes these as `assetSignals`, and the AAS view renders their latest values. After USB re-enumeration the gateway discards the failed serial descriptor and reopens the stable `/dev/serial/by-id/...` path on the next poll. This is controller telemetry, not measured physical joint feedback.
 
 ```mermaid
   flowchart TD

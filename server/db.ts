@@ -11,7 +11,7 @@ import { getAllowedAssetTransitions, type AssetLifecycleStage } from "../shared/
 import { getAlertErrorCode } from "../shared/alert-codes";
 import { evaluateAlertThreshold } from "../shared/alert-thresholds";
 import { deviceWithCurrentStatus } from "./deviceConnectivity";
-import { visibleWhenDemoDataEnabled } from "./demoData";
+import { demoDataEnabled, visibleWhenDemoDataEnabled } from "./demoData";
 
 const {
   users,
@@ -1497,6 +1497,25 @@ export async function acknowledgeAlert(id: number, actorId: number) {
   }));
 }
 
+/** Keep incident views aligned with the device and asset inventories shown in the UI. */
+function visibleAlertEntitiesCondition() {
+  const liveDevice = demoDataEnabled()
+    ? eq(devices.id, alerts.deviceId)
+    : and(eq(devices.id, alerts.deviceId), eq(devices.isDemo, false));
+  const liveAsset = demoDataEnabled()
+    ? eq(assets.assetId, alerts.assetId)
+    : and(eq(assets.assetId, alerts.assetId), eq(assets.isDemo, false));
+  return sql`exists (
+    select 1 from ${devices}
+    where ${liveDevice}
+  ) and (
+    ${alerts.assetId} is null or exists (
+      select 1 from ${assets}
+      where ${liveAsset}
+    )
+  )`;
+}
+
 export async function getAlerts(filters?: {
   deviceId?: number;
   status?: Alert["status"];
@@ -1509,7 +1528,7 @@ export async function getAlerts(filters?: {
   return withDb(async (db) => {
     let query = db.select({ ...getTableColumns(alerts), assignedToName: users.name })
       .from(alerts).leftJoin(users, eq(alerts.assignedToId, users.id));
-    const conditions = [];
+    const conditions = [visibleAlertEntitiesCondition()];
 
     if (filters?.deviceId) conditions.push(eq(alerts.deviceId, filters.deviceId));
     if (filters?.status) conditions.push(eq(alerts.status, filters.status));
@@ -1526,7 +1545,8 @@ export async function getAlerts(filters?: {
 export async function getAlertById(id: number) {
   return withDb(async (db) => {
     const [alert] = await db.select({ ...getTableColumns(alerts), assignedToName: users.name })
-      .from(alerts).leftJoin(users, eq(alerts.assignedToId, users.id)).where(eq(alerts.id, id));
+      .from(alerts).leftJoin(users, eq(alerts.assignedToId, users.id))
+      .where(and(eq(alerts.id, id), visibleAlertEntitiesCondition()));
     return alert;
   });
 }
@@ -1554,7 +1574,10 @@ export async function getAlertStats(deviceIds?: number[]) {
       longestActiveDowntimeSeconds: sql<number | null>`max(floor(extract(epoch from (now() - ${alerts.downtimeStartedAt})))::int) filter (where ${alerts.downtimeStartedAt} is not null and ${alerts.status} <> 'resolved')`,
       averageDowntimeToResolutionSeconds: sql<number | null>`(avg(floor(extract(epoch from (${alerts.resolvedAt} - ${alerts.downtimeStartedAt})))) filter (where ${alerts.downtimeStartedAt} is not null and ${alerts.resolvedAt} is not null))::int`,
       resolvedDowntimeCount: sql<number>`count(*) filter (where ${alerts.downtimeStartedAt} is not null and ${alerts.resolvedAt} is not null)::int`,
-    }).from(alerts).where(deviceIds === undefined ? undefined : deviceIds.length > 0 ? inArray(alerts.deviceId, deviceIds) : sql`false`);
+    }).from(alerts).where(and(
+      visibleAlertEntitiesCondition(),
+      deviceIds === undefined ? undefined : deviceIds.length > 0 ? inArray(alerts.deviceId, deviceIds) : sql`false`,
+    ));
     return stats;
   });
 }

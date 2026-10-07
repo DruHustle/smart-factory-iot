@@ -1,6 +1,6 @@
 # Vercel frontend and single-container Render backend
 
-This is the canonical deployment guide for all three repositories. Production runs the React UI on Vercel and all six backend services in **one non-root Render container**. Kubernetes is unnecessary. Managed databases, messaging, Redis and the company AAS runtime are external; Pi/ESP32/ADA031 equipment stays on the OT network.
+This is the canonical deployment guide for all three repositories. Production runs the React UI on Vercel and all six backend services in **one non-root Render container**. Six BaSyx services run separately on one Oracle Cloud VM behind Caddy and use an Aiven PostgreSQL database. Kubernetes is unnecessary. Managed databases, messaging and Redis remain external; Pi/ESP32/ADA031 equipment stays on the OT network.
 
 ## What runs where
 
@@ -12,6 +12,8 @@ This is the canonical deployment guide for all three repositories. Production ru
 | IdentityService | `127.0.0.1:3104` | Current dashboard profile/role checks; no separate account store or Entra login |
 | AnalyticsService | `127.0.0.1:3105` | SQL sample coverage, gaps and null-safe metrics for selected assets |
 | NotificationService | `127.0.0.1:3106` | Durable incident inbox delivery through Resend |
+
+Outside Render, the Oracle VM runs the AAS Repository, AAS Registry, Submodel Repository, Submodel Registry, Concept Description Repository, and AASX File Server. Caddy exposes HTTPS component paths and the client-credentials token endpoint; ports 8081–8086 bind to loopback. These services share the dedicated Aiven `basyx` database.
 
 Supervisor restarts failed processes and forwards shutdown signals. Public readiness verifies the dashboard database, Redis, and all five .NET services. `/health/live` remains available during dependency outages. Private APIs do not appear as public Render routes. The Node API delegates identity/analytics calls using a separate service token and the authenticated account ID; the services reload the current account from PostgreSQL.
 
@@ -82,6 +84,12 @@ The entrypoint writes the CA to a private file under `/tmp` and configures verif
 Identity/Analytics/Notification each cap their database pool at 20 connections. Budget these pools plus Node, EF services, pre-deploy jobs and AAS against provider limits. Restrict provider ingress to approved egress addresses, use scoped database permissions, and monitor queue age/depth and spool capacity. Different read-only credentials for identity/analytics are a future hardening step: the current three services share the dashboard database connection in the bundle.
 
 Public registration is disabled in production. Bootstrap the first admin through the private Render shell/job with temporary `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD` (12–72 UTF-8 bytes) and optional `BOOTSTRAP_ADMIN_NAME`, then run `node scripts/bootstrap-admin.mjs`. This serialized command refuses to run if an admin already exists and never prints passwords. Remove the temporary secrets afterward. Administrators create further accounts in **User access** and provide their credentials through approved private channels. Development registration creates a viewer and cannot choose its role. There is no default production password or demo admin. Keep account promotion audit records outside the application until a full account audit log is implemented.
+
+## Oracle BaSyx VM
+
+Infrastructure code lives in the backend repository under `deploy/terraform/oracle-basyx`; the runtime Compose stack lives under `deploy/oracle-basyx`. Authenticate OCI, create and review `terraform.tfvars`, then run `terraform init`, `terraform validate`, `terraform plan`, and apply only after Oracle shows an Always Free-eligible zero-cost allocation. The module creates the Ubuntu ARM64 VM, network, restricted SSH rule, and Docker host, while keeping database and OAuth secrets out of Terraform state.
+
+On the VM, copy the Compose directory, create its untracked `.env`, and set the Aiven host/port, dedicated `basyx_service` user/password/database, OAuth client ID/secret, and separate gateway bearer token. Run `docker compose run --rm configuration` once, then `docker compose up -d`, and verify each `/description` route through HTTPS. Point Render's six AAS component URLs and token URL at the Caddy paths. Keep 8081–8086 loopback-only, restrict SSH, rotate bootstrap secrets, back up Aiven, and validate create/import/delete/profile flows before plant use.
 
 ## Resend email
 

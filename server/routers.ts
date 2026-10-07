@@ -15,7 +15,7 @@ import { DEMO_ACCOUNTS, demoAccountsEnabled, isDemoAccount } from "../shared/dem
 import { edgeTagMappingsSchema } from "../shared/edge-configuration";
 import { answerFactoryQuestion } from "./assistantKnowledge";
 
-const deviceTypeEnum = z.enum(["sensor", "actuator", "controller", "gateway"]);
+const deviceTypeEnum = z.enum(["sensor", "actuator", "controller", "gateway", "edge_device"]);
 const deviceStatusEnum = z.enum(["online", "offline", "maintenance", "error"]);
 const alertSeverityEnum = z.enum(["info", "warning", "critical"]);
 const otaUnavailableMessage = "OTA delivery is disabled: no verified firmware release service and device update agent are connected. No update request was queued.";
@@ -190,9 +190,7 @@ export const appRouter = router({
       if (!gateway || gateway.type !== "gateway") return [];
       return db.getAssetsForGateway(gateway.deviceId);
     }),
-    // This screen registers the edge gateway identity. Industrial equipment
-    // itself is created as an AAS asset and linked to a gateway from its AAS page.
-    create: engineerProcedure.input(z.object({ deviceId: z.string().trim().min(3).max(64), name: z.string().trim().min(3).max(255), status: deviceStatusEnum.optional(), location: z.string().trim().max(255).optional(), zone: z.string().trim().max(100).optional() })).mutation(({ input }) => db.createDevice({ ...input, type: "gateway" })),
+    create: engineerProcedure.input(z.object({ type: z.enum(["gateway", "edge_device"]).default("gateway"), deviceId: z.string().trim().min(3).max(64), name: z.string().trim().min(3).max(255), status: deviceStatusEnum.optional(), location: z.string().trim().max(255).optional(), zone: z.string().trim().max(100).optional() })).mutation(({ input }) => db.createDevice(input)),
     update: engineerProcedure.input(z.object({ id: z.number(), name: z.string().optional(), status: deviceStatusEnum.optional() })).mutation(({ input: { id, ...data } }) => db.updateDevice(id, data)),
     delete: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
       if (!await db.deleteDevice(input.id)) throw new TRPCError({ code: "NOT_FOUND", message: "Device not found" });

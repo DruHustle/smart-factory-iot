@@ -12,8 +12,10 @@ export const edgeTelemetrySchema = z.object({
     z.number().finite().min(-1_000_000_000).max(4_294_967_295),
   ).nullish().transform((signals) => signals ?? undefined)
     .refine((signals) => !signals || Object.keys(signals).length <= 32, "At most 32 named asset signals are accepted"),
-  sensorType: z.string().trim().min(1).max(64).refine((value) => !/[\u0000-\u001f\u007f]/.test(value)).optional(),
-  sensorStatus: z.enum(["ok", "read_error"]).optional(),
+  // System.Text.Json includes nullable DTO properties as JSON null. Normalize
+  // those wire values to absence so non-sensor asset telemetry is accepted.
+  sensorType: z.string().trim().min(1).max(64).refine((value) => !/[\u0000-\u001f\u007f]/.test(value)).nullish().transform((value) => value ?? undefined),
+  sensorStatus: z.enum(["ok", "read_error"]).nullish().transform((value) => value ?? undefined),
   timestamp: z.union([z.number().int().positive().max(8_640_000_000_000_000), z.string().datetime({ offset: true })]),
   temperature: z.number().finite().min(-1e9).max(1e9).nullable().optional(),
   // Relative humidity is a percentage; rejecting impossible values prevents a

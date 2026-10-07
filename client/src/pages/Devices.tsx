@@ -52,7 +52,7 @@ import { canAdministerUsers, canViewEngineering } from "@/lib/access";
 import { getConnectivityRecordId } from "@/lib/device-display";
 
 type DeviceStatus = "online" | "offline" | "maintenance" | "error";
-type DeviceType = "sensor" | "actuator" | "controller" | "gateway";
+type DeviceType = "sensor" | "actuator" | "controller" | "gateway" | "edge_device";
 
 const statusColors: Record<DeviceStatus, string> = {
   online: "bg-success text-success-foreground",
@@ -66,6 +66,7 @@ const typeColors: Record<DeviceType, string> = {
   actuator: "bg-chart-2/20 text-chart-2 border-chart-2/30",
   controller: "bg-chart-3/20 text-chart-3 border-chart-3/30",
   gateway: "bg-chart-4/20 text-chart-4 border-chart-4/30",
+  edge_device: "bg-chart-5/20 text-chart-5 border-chart-5/30",
 };
 
 export default function Devices() {
@@ -124,15 +125,15 @@ export default function Devices() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Gateway & Edge Device Connectivity</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Device Connectivity</h1>
           <p className="text-muted-foreground">
-            Register edge gateways, devices and monitor connectivity.
+            Register gateways and edge devices, then monitor their connectivity.
           </p>
         </div>
         {canViewEngineering(user?.role) && (
           <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Register Gateway
+            Register Device
           </Button>
         )}
       </div>
@@ -173,6 +174,7 @@ export default function Devices() {
                 <SelectItem value="actuator">Actuator</SelectItem>
                 <SelectItem value="controller">Controller</SelectItem>
                 <SelectItem value="gateway">Gateway</SelectItem>
+                <SelectItem value="edge_device">Edge Device</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -205,7 +207,7 @@ export default function Devices() {
               <p className="text-muted-foreground text-center">
                 {search || statusFilter !== "all" || typeFilter !== "all"
                   ? "Try adjusting your filters"
-                  : "Register an edge gateway that connects your equipment"}
+                  : "Register a gateway or edge device"}
               </p>
             </div>
           ) : (
@@ -213,7 +215,7 @@ export default function Devices() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Gateway ID - Device ID</TableHead>
+                    <TableHead>Device</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Zone</TableHead>
@@ -244,7 +246,7 @@ export default function Devices() {
                           variant="outline"
                           className={typeColors[device.type as DeviceType]}
                         >
-                          <span className="capitalize">{device.type}</span>
+                          <span className="capitalize">{device.type.replaceAll("_", " ")}</span>
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -296,7 +298,7 @@ export default function Devices() {
                                 }}
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
+                                Delete Device
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
@@ -315,7 +317,7 @@ export default function Devices() {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Device</DialogTitle>
+            <DialogTitle>Delete selected device</DialogTitle>
             <DialogDescription>
               Remove this connectivity record? Existing telemetry history is retained. A gateway linked to an AAS asset must be disconnected from the asset first.
             </DialogDescription>

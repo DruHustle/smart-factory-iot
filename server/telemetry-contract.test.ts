@@ -24,6 +24,22 @@ describe("edge telemetry wire contract", () => {
     expect(parsed.sensorStatus).toBe("ok");
   });
 
+  it("normalizes nullable .NET sensor metadata for asset telemetry", () => {
+    const parsed = edgeTelemetrySchema.parse({
+      deviceId: "pi-edge-01",
+      gatewayId: "pi-edge-01",
+      assetId: "urn:smart-factory:asset:ada031-v4-arm-01",
+      sensorType: null,
+      sensorStatus: null,
+      assetSignals: { movement_active: 1, cycle_count: 2 },
+      timestamp: 1_791_222_498_582,
+    });
+
+    expect(parsed.sensorType).toBeUndefined();
+    expect(parsed.sensorStatus).toBeUndefined();
+    expect(parsed.assetSignals).toEqual({ movement_active: 1, cycle_count: 2 });
+  });
+
   it("rejects impossible relative-humidity values", () => {
     const sample = {
       deviceId: "esp32-wrover-01",
