@@ -15,7 +15,7 @@ New passwords require at least 12 characters and cannot exceed bcrypt's 72-byte 
 
 ## Development demo accounts
 
-Set ENABLE_DEMO_ACCOUNTS=true only in non-production. The API provides Demo Viewer (demo@dev.local), Demo Operator (operator@dev.local), Demo Engineer (tech@dev.local), and Demo Admin (admin@dev.local). The local-only password is password123. When the flag is false, the UI shortcuts disappear and the API rejects reserved demo identities even if older database rows remain. Production suppresses and rejects demo identities regardless of the flag.
+Set `ENABLE_DEMO_ACCOUNTS=true` only for local development or an isolated demonstration tenant. The API provides Demo Viewer (`demo@dev.local`), Demo Operator (`operator@dev.local`), Demo Engineer (`tech@dev.local`), and Demo Admin (`admin@dev.local`) and returns the shared demo credential with the enabled shortcuts. When the flag is false, the UI shortcuts disappear and the API rejects reserved demo identities even if older database rows remain. Production defaults the flag off but honors an explicit setting for an isolated demonstration tenant.
 
 Login attempt limits are stored as hashed identifiers in PostgreSQL and are shared between app replicas. Set an ingress/WAF rate limit as well. Leave `TRUST_PROXY` unset unless the service is behind a reverse proxy; then trust only that proxy's known IP/CIDR range or a fixed hop count.
 

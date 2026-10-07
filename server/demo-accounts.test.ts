@@ -63,7 +63,7 @@ describe("demo accounts", () => {
     const compare = vi.spyOn(sdk, "comparePassword").mockResolvedValue(true);
     try {
       const context = { user: null, req: { headers: {} }, res: { cookie: vi.fn() } } as unknown as TrpcContext;
-      await expect(appRouter.createCaller(context).auth.login({ email: "admin@dev.local", password: "password123" }))
+      await expect(appRouter.createCaller(context).auth.login({ email: "admin@dev.local", password: "@agqJmbpaPtJ#5SM1#vJ" }))
         .rejects.toThrow("Invalid email or password");
       expect(lookup).toHaveBeenCalledOnce();
       expect(compare).not.toHaveBeenCalled();

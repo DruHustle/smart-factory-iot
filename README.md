@@ -98,7 +98,7 @@ pnpm dev
 
 ## Roles, Assets, and AAS
 
-In local development, set `ENABLE_DEMO_ACCOUNTS=true` and `ENABLE_DEMO_DATA=true`. The API creates four demo login buttons on the login page. The common development password is `password123`.
+In local development, set `ENABLE_DEMO_ACCOUNTS=true` and `ENABLE_DEMO_DATA=true`. The API creates four demo login buttons on the login page. The shared demo password is returned by the API with those shortcuts when demo accounts are enabled.
 
 | Role | Access |
 |---|---|

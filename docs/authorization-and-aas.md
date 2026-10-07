@@ -26,7 +26,7 @@ Set `ENABLE_DEMO_ACCOUNTS=true` to seed and return these login shortcuts to the 
 | Demo Engineer | `tech@dev.local` | engineer |
 | Demo Admin | `admin@dev.local` | admin |
 
-The development password is `password123`. It is served by the API only when the demo-account flag is enabled outside production. Setting the flag to false also rejects these reserved identities at login, including rows left behind in a database. Production ignores the flag and always rejects these reserved identities. Use individual accounts with strong unique passwords for a deployed system.
+The shared demo credential is served by the API only when the demo-account flag is enabled. Setting the flag to false also rejects these reserved identities at login, including rows left behind in a database. Production defaults the flag off but can explicitly enable it for an isolated demonstration tenant without sensitive data or connected equipment. Use individual accounts with strong unique passwords for a normal deployed system.
 
 `ENABLE_DEMO_DATA=true` separately seeds three simulated gateways, a compressor, transformer, and Windformer wind turbine generator, telemetry, alerts, and lifecycle history when no live asset exists. Data is stored in PostgreSQL and marked simulated; the browser has no hardcoded asset fallback. Demo asset lifecycle actions are read-only.
 

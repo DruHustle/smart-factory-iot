@@ -17,7 +17,7 @@ async function loginAs(page: import("@playwright/test").Page, role: "admin" | "o
   await page.goto("/#/login");
   await page.getByRole("button", { name: labels[role], exact: true }).click();
   await expect(page.getByLabel("Email")).toHaveValue(emails[role]);
-  await expect(page.getByLabel("Password", { exact: true })).toHaveValue("password123");
+  await expect(page.getByLabel("Password", { exact: true })).toHaveValue("@agqJmbpaPtJ#5SM1#vJ");
   await page.getByRole("button", { name: /^sign in$/i }).click();
   await expect(page.getByRole("heading", { name: /factory overview/i })).toBeVisible();
 }

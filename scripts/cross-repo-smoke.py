@@ -139,7 +139,7 @@ def main():
             clients.append(gateway)
             eventually(lambda: gateway.is_connected(), 'gateway MQTT connection')
             time.sleep(1)
-            trpc(opener, 'auth.login', {'email': 'tech@dev.local', 'password': 'password123'})
+            trpc(opener, 'auth.login', {'email': 'tech@dev.local', 'password': '@agqJmbpaPtJ#5SM1#vJ'})
             device = trpc(opener, 'devices.create', {'deviceId': gateway_id, 'name': 'Review Pi'})
             identity = dict(assetId=asset_id, name='Review Arm', assetType='robotic_arm', manufacturer='Review Works', model='Bench fixture',
                 manufacturerStreet='Test 1', manufacturerZipcode='10000', manufacturerCityTown='Test', manufacturerNationalCode='DE',
@@ -160,7 +160,7 @@ def main():
             eventually(lambda: writes == [b'o'], 'exact serial command byte')
             eventually(lambda: any_ack(acknowledgements, result['commandId'], 'serial_write_accepted'), 'serial acknowledgement')
             trpc(opener, 'auth.logout', None)
-            trpc(opener, 'auth.login', {'email': 'demo@dev.local', 'password': 'password123'})
+            trpc(opener, 'auth.login', {'email': 'demo@dev.local', 'password': '@agqJmbpaPtJ#5SM1#vJ'})
             status, _ = http(opener, '/api/trpc/assets.controlAda031', {'json': {
                 'id': asset['id'],
                 'command': {'action': 'jog', 'joint': 'base', 'direction': 'increase'},
@@ -194,7 +194,7 @@ def main():
             eventually(producer.drain_one, 'second sample broker acceptance during dashboard outage')
             time.sleep(3)
             server = start_dashboard()
-            trpc(opener, 'auth.login', {'email': 'demo@dev.local', 'password': 'password123'})
+            trpc(opener, 'auth.login', {'email': 'demo@dev.local', 'password': '@agqJmbpaPtJ#5SM1#vJ'})
             input['endTime'] = int(time.time() * 1000) + 1000
             eventually(lambda: trpc(opener, 'analytics.getAssetTelemetry', input, query=True)['overall']['sampleCount'] == 2, 'persisted backend retry after dashboard restart')
             print('PASS: dashboard outage/restart -> backend outbox retries -> both samples recovered without duplication', flush=True)
