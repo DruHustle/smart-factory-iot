@@ -11,7 +11,7 @@ This is the canonical deployment guide for all three repositories. Production ru
 | TelemetryService | worker: `0.0.0.0:$PORT` health endpoint | Persistent MQTT intake, PostgreSQL storage and retryable dashboard/event delivery |
 | IdentityService | web: `127.0.0.1:3104` | Current dashboard profile/role checks; no separate account store or Entra login |
 | AnalyticsService | web: `127.0.0.1:3105` | SQL sample coverage, gaps and null-safe metrics for selected assets |
-| NotificationService | worker: `127.0.0.1:3106` | Durable incident and account-email delivery through SES or Resend |
+| NotificationService | worker: `127.0.0.1:3106` | Durable incident and account-email delivery through Gmail SMTP or Resend |
 
 Outside Render, the Oracle VM runs the AAS Repository, AAS Registry, Submodel Repository, Submodel Registry, Concept Description Repository, and AASX File Server. Caddy exposes HTTPS component paths and the client-credentials token endpoint; ports 8081–8086 bind to loopback. These services share the dedicated Aiven `basyx` database.
 
@@ -99,13 +99,13 @@ On the VM, copy the Compose directory, create its untracked `.env`, and set the 
 
 ## Transactional email
 
-The inbox and account creation work without email delivery. For Amazon SES set `EMAIL_PROVIDER=ses`, `SES_ENABLED=true`, `SES_REGION`, and `SES_FROM`. Install only a least-privilege IAM access key permitted to call `ses:SendEmail` from the verified identity; never install root credentials. While SES is sandboxed, keep `SES_ALLOW_ALL_RECIPIENTS=false` and list only verified test addresses in `SES_ALLOWED_RECIPIENTS`. After production access is approved, explicitly set `SES_ALLOW_ALL_RECIPIENTS=true` to deliver account mail to arbitrary registered users. `SES_ALLOWED_RECIPIENT_DOMAINS` can retain a narrower technician policy where required.
+The inbox and account creation work without email delivery. The current provider is Gmail SMTP: set `EMAIL_PROVIDER=smtp`, `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `SMTP_FROM`. `SMTP_PASSWORD` must be a Google app password stored only in the Render worker environment. Set `SMTP_ALLOW_ALL_RECIPIENTS=true` for signup mail, or use the explicit recipient/domain allowlists for a restricted deployment.
 
 Resend remains available by setting `EMAIL_PROVIDER=resend` and configuring all of `RESEND_API_KEY`, `RESEND_FROM`, and `RESEND_ALLOWED_RECIPIENT_DOMAINS`. Partial provider configuration fails closed. All credentials remain server-side.
 
-Emails go only to current engineer/admin dashboard accounts on explicitly allowed domains. The sender is fixed server-side. Incident insertion and assignment/resolution updates enqueue inbox records in the same PostgreSQL transaction via migration 0013. The worker claims jobs with a lease, retries up to eight failed attempts with bounded backoff, and retains failed requests. Authorized owners can retry eligible requests after configuration is corrected. Unconfigured or unauthorized recipients are displayed explicitly.
+Welcome emails may go to newly created accounts allowed by the configured recipient policy. Incident and assignment/resolution emails go only to current engineer/admin dashboard accounts. The sender is fixed server-side. Incident insertion and assignment/resolution updates enqueue inbox records in the same PostgreSQL transaction via migration 0013. The worker claims jobs with a lease, retries up to eight failed attempts with bounded backoff, and retains failed requests. Authorized owners can retry eligible requests after configuration is corrected. Unconfigured or unauthorized recipients are displayed explicitly.
 
-Provider acceptance is recorded as **accepted**, never as confirmed mailbox delivery. Messages include the application notification ID as a custom header for correlation. Resend requests also use its idempotency key; SES delivery is at least once and a retry after an ambiguous timeout can duplicate a message. Validate the verified sender identity, recipient restrictions, throttling and a controlled test mailbox before enabling factory notifications.
+Provider acceptance is recorded as **accepted**, never as confirmed mailbox delivery. Messages include the application notification ID as a custom header for correlation. Resend requests also use its idempotency key; SMTP delivery is at least once and a retry after an ambiguous timeout can duplicate a message. Validate the sender account, recipient restrictions, throttling and a controlled test mailbox before enabling factory notifications.
 
 ## Vercel settings
 
@@ -135,4 +135,4 @@ Rollback is a reviewed release of the previous recorded image digest followed by
 
 ## Acceptance before plant use
 
-See the [review evidence and remaining release gates](docs/production-readiness-review.md). Live managed-provider TLS/ACLs, Resend mailbox delivery, Vercel proxy behavior, load/capacity, backup restoration, OT commissioning and hardware movement require deployment-specific evidence. Automated OTA remains unavailable in this release; bench firmware flashing and manual Pi deployment are documented in the edge guides. Do not advertise OTA as completed based on a dashboard database record.
+See the [review evidence and remaining release gates](docs/production-readiness-review.md). Live managed-provider TLS/ACLs, Gmail SMTP mailbox delivery, Vercel proxy behavior, load/capacity, backup restoration, OT commissioning and hardware movement require deployment-specific evidence. Automated OTA remains unavailable in this release; bench firmware flashing and manual Pi deployment are documented in the edge guides. Do not advertise OTA as completed based on a dashboard database record.

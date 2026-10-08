@@ -46,11 +46,14 @@ export async function retryNotification(userId: number, id: number) {
 }
 export function notificationConfiguration() {
   const provider = (process.env.EMAIL_PROVIDER ?? "resend").toLowerCase();
-  const emailConfigured = provider === "ses"
+  const inferredConfiguration = provider === "ses"
     ? process.env.SES_ENABLED === "true" && Boolean(process.env.SES_FROM)
     : provider === "smtp"
-      ? ["SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_FROM"].every(key => Boolean(process.env[key]))
+      ? ["SMTP_USERNAME", "SMTP_FROM"].every(key => Boolean(process.env[key]))
       : ["RESEND_API_KEY", "RESEND_FROM", "RESEND_ALLOWED_RECIPIENT_DOMAINS"].every(key => Boolean(process.env[key]));
+  const emailConfigured = process.env.EMAIL_DELIVERY_CONFIGURED === undefined
+    ? inferredConfiguration
+    : process.env.EMAIL_DELIVERY_CONFIGURED === "true";
   const providerName = provider === "ses" ? "Amazon SES" : provider === "smtp" ? "Gmail SMTP" : "Resend";
   return [{ provider: providerName, inboxEnabled: true,
     emailConfigured,
