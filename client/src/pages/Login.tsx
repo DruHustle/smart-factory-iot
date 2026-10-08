@@ -16,9 +16,11 @@ import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { safeSessionStorage } from "@/lib/storage";
+import { DEMO_ACCOUNTS, type DemoAccount } from "../../../shared/demo-accounts";
 
 const DEMO_ACCOUNT_CACHE_KEY = "smart-factory:demo-account-shortcuts:v1";
-type DemoAccountShortcut = { label: string; email: string; password: string; role: "admin" | "viewer" | "operator" | "engineer"; description: string };
+const BUILD_ENABLES_DEMO_ACCOUNTS = import.meta.env.VITE_ENABLE_DEMO_ACCOUNTS === "true";
+type DemoAccountShortcut = DemoAccount;
 
 function cachedDemoAccounts(): DemoAccountShortcut[] {
   try {
@@ -30,6 +32,12 @@ function cachedDemoAccounts(): DemoAccountShortcut[] {
   } catch { return []; }
 }
 
+function initialDemoAccounts(): DemoAccountShortcut[] {
+  const cached = cachedDemoAccounts();
+  if (cached.length) return cached;
+  return BUILD_ENABLES_DEMO_ACCOUNTS ? DEMO_ACCOUNTS : [];
+}
+
 export default function Login() {
   const { login } = useAuth();
   const [, navigate] = useLocation();
@@ -37,7 +45,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [lastConfirmedDemoAccounts, setLastConfirmedDemoAccounts] = useState<DemoAccountShortcut[]>(cachedDemoAccounts);
+  const [lastConfirmedDemoAccounts, setLastConfirmedDemoAccounts] = useState<DemoAccountShortcut[]>(initialDemoAccounts);
   const demoAccountsQuery = trpc.auth.demoAccounts.useQuery(undefined, {
     retry: 3,
     retryDelay: (attempt) => Math.min(1_000 * 2 ** attempt, 5_000),

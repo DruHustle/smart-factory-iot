@@ -167,6 +167,7 @@ jobs:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       VITE_API_URL: /api
+      VITE_ENABLE_DEMO_ACCOUNTS: 'true'
     steps:
       - name: Require release configuration
         run: |
