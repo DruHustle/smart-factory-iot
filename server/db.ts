@@ -410,7 +410,7 @@ export async function recordDeviceHeartbeat(input: { deviceId: string; timestamp
 // ============ Asset Administration Shell Functions ============
 export async function getAssets() {
   return withDb(async (db) => {
-    const rows = await db.select({
+    const [rows, connectionCounts] = await Promise.all([db.select({
     id: assets.id,
     assetId: assets.assetId,
     name: assets.name,
@@ -434,8 +434,16 @@ export async function getAssets() {
     aasxImported: assets.aasxImported,
     createdAt: assets.createdAt,
     updatedAt: assets.updatedAt,
-    }).from(assets).orderBy(asc(assets.name));
-    return rows.filter((asset) => visibleWhenDemoDataEnabled(asset));
+    }).from(assets).orderBy(asc(assets.name)), db.select({
+      assetId: assetDevices.assetId,
+      connectionCount: sql<number>`count(*)::int`,
+    }).from(assetDevices).groupBy(assetDevices.assetId)]);
+    const countsByAsset = new Map(connectionCounts.map((connection) => [connection.assetId, connection.connectionCount]));
+    return rows.filter((asset) => visibleWhenDemoDataEnabled(asset)).map((asset) => ({
+      ...asset,
+      connectionCount: countsByAsset.get(asset.id) ?? 0,
+      isConnected: (countsByAsset.get(asset.id) ?? 0) > 0,
+    }));
   });
 }
 
