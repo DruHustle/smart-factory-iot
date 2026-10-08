@@ -203,8 +203,8 @@ export const appRouter = router({
     pulseIndicator: operatorProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ input, ctx }) => {
       const device = await db.getDeviceById(input.id);
       const gatewayDeviceId = typeof device?.metadata?.gatewayId === "string" ? device.metadata.gatewayId : undefined;
-      if (!device || device.isDemo || device.type !== "sensor" || !gatewayDeviceId) {
-        throw new Error("A live gateway-connected WROVER sensor is required");
+      if (!device || device.isDemo || !["edge_device", "sensor"].includes(device.type) || !gatewayDeviceId) {
+        throw new Error("A live gateway-connected WROVER edge device is required");
       }
       const commandId = randomUUID();
       const userToken = await sdk.createSessionToken(ctx.user, { expiresInMs: 60_000 });

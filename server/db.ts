@@ -797,7 +797,7 @@ export async function ingestTelemetryByDeviceId(input: {
       [device] = await tx.insert(devices).values({
         deviceId: input.deviceId,
         name: input.deviceId,
-        type: input.gatewayId === input.deviceId ? "gateway" : "sensor",
+        type: input.gatewayId === input.deviceId ? "gateway" : input.gatewayId ? "edge_device" : "sensor",
         status: "online",
         lastSeen: new Date(input.timestamp),
         isDemo: false,
@@ -818,7 +818,11 @@ export async function ingestTelemetryByDeviceId(input: {
       if (isNewestSample && input.sensorType) metadata.sensorType = input.sensorType;
       if (isNewestSample && input.sensorStatus) metadata.sensorStatus = input.sensorStatus;
       [device] = await tx.update(devices).set({
-        type: input.gatewayId === input.deviceId ? "gateway" : device.type,
+        type: input.gatewayId === input.deviceId
+          ? "gateway"
+          : input.gatewayId && device.type === "sensor"
+            ? "edge_device"
+            : device.type,
         status: device.status === "maintenance" || device.status === "error" ? device.status : "online",
         lastSeen: new Date(Math.max(input.timestamp, device.lastSeen?.getTime() ?? 0)), metadata, updatedAt: new Date(),
       })

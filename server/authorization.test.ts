@@ -89,7 +89,7 @@ describe("role based access control", () => {
 
     vi.spyOn(db, "getDeviceById").mockResolvedValue(undefined);
     const operator = appRouter.createCaller(contextFor("operator"));
-    await expect(operator.devices.pulseIndicator({ id: 1 })).rejects.toThrow("A live gateway-connected WROVER sensor is required");
+    await expect(operator.devices.pulseIndicator({ id: 1 })).rejects.toThrow("A live gateway-connected WROVER edge device is required");
   });
 
   it("reserves user and notification administration for admins", async () => {
