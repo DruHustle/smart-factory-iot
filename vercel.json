@@ -3,11 +3,11 @@
   "buildCommand": "pnpm build",
   "outputDirectory": "dist/public",
   "rewrites": [
-    { "source": "/health/live", "destination": "https://configure-render-origin.example.invalid/health/live" },
-    { "source": "/health/ready", "destination": "https://configure-render-origin.example.invalid/health/ready" },
-    { "source": "/api/health/live", "destination": "https://configure-render-origin.example.invalid/health/live" },
-    { "source": "/api/health/ready", "destination": "https://configure-render-origin.example.invalid/health/ready" },
-    { "source": "/api/:path*", "destination": "https://configure-render-origin.example.invalid/api/:path*" },
+    { "source": "/health/live", "destination": "https://smart-factory-iot-backend-api.onrender.com/health/live" },
+    { "source": "/health/ready", "destination": "https://smart-factory-iot-backend-api.onrender.com/health/ready" },
+    { "source": "/api/health/live", "destination": "https://smart-factory-iot-backend-api.onrender.com/health/live" },
+    { "source": "/api/health/ready", "destination": "https://smart-factory-iot-backend-api.onrender.com/health/ready" },
+    { "source": "/api/:path*", "destination": "https://smart-factory-iot-backend-api.onrender.com/api/:path*" },
     { "source": "/:path*", "destination": "/index.html" }
   ],
   "headers": [

@@ -33,9 +33,10 @@ if (renderPosition < 0 || vercelPosition < 0 || renderPosition >= vercelPosition
 
 const vercel = JSON.parse(vercelText);
 if (vercel.outputDirectory !== 'dist/public') failures.push('Vercel outputDirectory must be dist/public');
+const productionApiOrigin = 'https://smart-factory-iot-backend-api.onrender.com';
 const apiRewrite = vercel.rewrites?.find(item => item.source === '/api/:path*');
-if (!apiRewrite?.destination?.startsWith('https://configure-render-origin.example.invalid/')) {
-  failures.push('committed Vercel API rewrite must retain the safe placeholder configured during release');
+if (apiRewrite?.destination !== `${productionApiOrigin}/api/:path*`) {
+  failures.push('committed Vercel API rewrite must target the production Render API');
 }
 for (const [source, destinationPath] of [
   ['/health/live', '/health/live'],
@@ -44,7 +45,7 @@ for (const [source, destinationPath] of [
   ['/api/health/ready', '/health/ready'],
 ]) {
   const rewrite = vercel.rewrites?.find(item => item.source === source);
-  if (rewrite?.destination !== `https://configure-render-origin.example.invalid${destinationPath}`) {
+  if (rewrite?.destination !== `${productionApiOrigin}${destinationPath}`) {
     failures.push(`Vercel ${source} must proxy to the backend ${destinationPath} endpoint`);
   }
 }
