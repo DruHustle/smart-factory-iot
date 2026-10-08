@@ -72,8 +72,12 @@ requireText(renderDeploy, /\/rollback'[\s\S]*\{'deployId': deploy_id\}/,
   'Render release must use the rollback API after a partial failure');
 requireText(renderDeploy, /for label, service, readiness_origin in reversed\(changed\)/,
   'Render release must roll back changed services in reverse order');
-requireText(renderDeploy, /deadline = time\.monotonic\(\) \+ 300[\s\S]*readiness did not recover within 5 minutes/,
+requireText(renderDeploy, /READINESS_TIMEOUT_SECONDS = 720[\s\S]*readiness did not recover within 12 minutes/,
   'Render release must tolerate bounded transient readiness failures before rollback');
+requireText(renderDeploy, /MAX_READINESS_DETAIL_BYTES = 512[\s\S]*response omitted/,
+  'Render release must bound readiness error output and omit upstream HTML pages');
+requireText(entrypoint, /dashboard database migrations are in progress[\s\S]*timeout=600[\s\S]*device database migrations are in progress[\s\S]*timeout=600/,
+  'Render startup must expose bounded dashboard and device migration stages');
 
 const programs = [...supervisor.matchAll(/^\[program:([^\]]+)\]$/gm)].map(match => match[1]).sort();
 const expectedPrograms = ['analytics', 'api', 'device', 'identity', 'notification', 'telemetry'];

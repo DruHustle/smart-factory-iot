@@ -131,7 +131,7 @@ test("ADA031 controls stay interlocked and publish only to the safe E2E mock", a
   await expect(page.getByText(assetName, { exact: true })).toBeVisible();
 
   const assetRow = page.getByRole("row").filter({ hasText: assetName });
-  await assetRow.getByRole("button", { name: `Open AAS for ${assetName}` }).click();
+  await assetRow.getByRole("button", { name: `Open ${assetName}` }).click();
   await expect(page.getByRole("heading", { name: "ADA031 operation control" })).toBeVisible();
 
   const operationCard = page.locator('[data-slot="card"]').filter({ has: page.getByRole("heading", { name: "ADA031 operation control" }) });

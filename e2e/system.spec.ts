@@ -392,7 +392,7 @@ test("admin can inspect demo AAS data and manage user access", async ({ page }) 
   const amlXml = await readFile(await amlDownload.path(), "utf8");
   expect(amlXml).toContain("urn:demo:asset:compressor-01");
 
-  await page.getByRole("button", { name: /open aas/i }).first().click();
+  await page.getByRole("button", { name: /^open /i }).first().click();
   await expect(page.getByText("Asset Administration Shell")).toBeVisible();
   await expect(page.getByText("Simulated engineering data.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "AAS submodels" })).toBeVisible();
@@ -445,7 +445,7 @@ test("admin can inspect demo AAS data and manage user access", async ({ page }) 
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Assets", exact: true }).click();
   const createdAssetRow = page.getByRole("row").filter({ hasText: "E2E Compressor 01" });
-  await createdAssetRow.getByRole("button", { name: "Open AAS for E2E Compressor 01" }).click();
+  await createdAssetRow.getByRole("button", { name: "Open E2E Compressor 01" }).click();
   await expect(page.getByText("AAS revision 2")).toBeVisible();
   await expect(page.getByText("Revision 2 · current · updated")).toBeVisible();
   await expect(page.getByText("Revision 1 · created")).toBeVisible();
@@ -469,7 +469,7 @@ test("admin can inspect demo AAS data and manage user access", async ({ page }) 
   await expect(page.getByText("Vendor Pump 1")).toBeVisible();
   await expect(page.getByText("Imported 1 asset from AASX")).toBeVisible();
   const importedAssetRow = page.getByRole("row").filter({ hasText: "Vendor Pump 1" });
-  await importedAssetRow.getByRole("button", { name: "Open AAS for Vendor Pump 1" }).click();
+  await importedAssetRow.getByRole("button", { name: "Open Vendor Pump 1" }).click();
   const importedDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: /export aas json/i }).click();
   const importedFile = await importedDownload;
@@ -516,7 +516,7 @@ test("viewer sees asset summaries while engineering and admin screens stay hidde
   await expect(page.getByRole("button", { name: "User Access" })).toHaveCount(0);
   await page.getByRole("button", { name: "Assets", exact: true }).click();
   await expect(page.getByText("Compressed Air Compressor 01")).toBeVisible();
-  await expect(page.getByRole("button", { name: /open aas/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^open /i })).toHaveCount(0);
   const aasAccess = await page.evaluate(async () => (await fetch("/api/aas/shells")).status);
   expect(aasAccess).toBe(403);
 });
@@ -528,7 +528,7 @@ test("operator can acknowledge alerts but cannot open AAS or user administration
   await expect(page.getByRole("button", { name: "User Access" })).toHaveCount(0);
   await page.getByRole("button", { name: "Assets", exact: true }).click();
   await expect(page.getByText("Compressed Air Compressor 01")).toBeVisible();
-  await expect(page.getByRole("button", { name: /open aas/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^open /i })).toHaveCount(0);
 });
 
 test("engineer can open AAS while user administration remains admin-only", async ({ page }) => {
@@ -536,7 +536,7 @@ test("engineer can open AAS while user administration remains admin-only", async
   await expect(page.getByRole("button", { name: "User Access" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "OTA Updates" })).toBeVisible();
   await page.getByRole("button", { name: "Assets", exact: true }).click();
-  await page.getByRole("button", { name: "Open AAS for Windformer Wind Turbine Generator 01" }).click();
+  await page.getByRole("button", { name: "Open Windformer Wind Turbine Generator 01" }).click();
   await expect(page.getByText("Asset Administration Shell")).toBeVisible();
   await expect(page.getByText("Nameplate", { exact: true })).toBeVisible();
   await expect(page.getByText("TechnicalData", { exact: true })).toBeVisible();

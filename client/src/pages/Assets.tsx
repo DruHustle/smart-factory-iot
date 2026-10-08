@@ -96,7 +96,7 @@ export default function Assets() {
                   {canViewEngineering(user?.role) && <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       {!asset.isDemo && !asset.aasxImported && <Button size="sm" variant="outline" aria-label={`Edit ${asset.name}`} onClick={() => { setEditingAsset(asset); setCreateOpen(true); }}><Pencil className="mr-2 h-4 w-4" />Edit</Button>}
-                      <Button size="sm" aria-label={`Open AAS for ${asset.name}`} onClick={() => setLocation(`/assets/${asset.id}/aas`)}><Layers className="mr-2 h-4 w-4" />Open AAS</Button>
+                      <Button size="sm" aria-label={`Open ${asset.name}`} onClick={() => setLocation(`/assets/${asset.id}/aas`)}><Layers className="mr-2 h-4 w-4" />Open</Button>
                       {user?.role === "admin" && !asset.isDemo && <Button size="sm" variant="destructive" aria-label={`Delete ${asset.name}`} onClick={() => setDeletingAsset(asset)}><Trash2 className="mr-2 h-4 w-4" />Delete</Button>}
                     </div>
                   </TableCell>}

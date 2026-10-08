@@ -61,7 +61,7 @@ Create **two paid, image-backed services** from the same reviewed GHCR digest. D
 
 Set `RENDER_SERVICE_ROLE=web` on the web service and `RENDER_SERVICE_ROLE=worker` on the worker service. Do not leave either production service on the backward-compatible `all` role.
 
-Render must use `/health/live` for instance health and deployment port detection. Use `/health/ready` only for diagnostics and release verification because it intentionally returns `503` while a database, MQTT or another required dependency is unavailable.
+Render must use `/health/live` for instance health and deployment port detection. Use `/health/ready` only for diagnostics and release verification because it intentionally returns `503` while a database, MQTT or another required dependency is unavailable. During startup it names the active dashboard, device, or telemetry migration stage. The coordinated release allows up to twelve minutes for readiness recovery, while each migration command is bounded to ten minutes; non-text upstream error pages are omitted from CI logs.
 
 The stateless web tier has no disk, so Render can load-balance replicas and perform zero-downtime rolling deployments. The worker remains single-instance because it owns the stable MQTT client ID. Its disk prevents deployment overlap; application data remains in PostgreSQL and Redis. Give the worker a dedicated stable `MqttClientId` when migrating from the legacy all-in-one service. Stable ingestion IDs make the short cutover overlap idempotent.
 

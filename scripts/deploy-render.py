@@ -1,6 +1,18 @@
 """Atomically deploy the reviewed digest to Render, rolling back both services on failure."""
 import json, os, re, time, urllib.request, urllib.error
 
+READINESS_TIMEOUT_SECONDS = 720
+MAX_READINESS_DETAIL_BYTES = 512
+
+def readiness_detail(status, headers, body):
+    content_type = (headers.get_content_type() if headers else 'application/octet-stream').lower()
+    if content_type not in ('application/json', 'text/plain'):
+        return 'HTTP ' + str(status) + ' (' + content_type + ' response omitted)'
+    detail = body[:MAX_READINESS_DETAIL_BYTES].decode('utf-8', errors='replace').strip()
+    detail = re.sub(r'\s+', ' ', detail)
+    if len(body) > MAX_READINESS_DETAIL_BYTES: detail += '…'
+    return 'HTTP ' + str(status) + (': ' + detail if detail else '')
+
 def main():
     required = ['RENDER_API_KEY', 'RENDER_WEB_SERVICE_ID', 'RENDER_WORKER_SERVICE_ID', 'RENDER_WEB_API_ORIGIN', 'RELEASE_IMAGE']
     if any(not os.environ.get(key) for key in required):
@@ -45,24 +57,24 @@ def main():
                 return identifier
         raise RuntimeError('No live ' + label + ' deploy is available as a rollback target')
     def await_readiness(readiness_origin, label):
-        deadline = time.monotonic() + 300
+        deadline = time.monotonic() + READINESS_TIMEOUT_SECONDS
         last_detail = 'no response'
         while time.monotonic() < deadline:
             try:
                 with urllib.request.urlopen(readiness_origin + '/health/ready', timeout=20) as response:
-                    body = response.read(4096).decode('utf-8', errors='replace').strip()
+                    body = response.read(MAX_READINESS_DETAIL_BYTES + 1)
                     if response.status == 200:
                         print('Render ' + label + ' readiness check passed.', flush=True)
                         return
-                    last_detail = 'HTTP ' + str(response.status) + (': ' + body if body else '')
+                    last_detail = readiness_detail(response.status, response.headers, body)
             except urllib.error.HTTPError as error:
-                body = error.read(4096).decode('utf-8', errors='replace').strip()
-                last_detail = 'HTTP ' + str(error.code) + (': ' + body if body else '')
+                body = error.read(MAX_READINESS_DETAIL_BYTES + 1)
+                last_detail = readiness_detail(error.code, error.headers, body)
             except Exception as error:
                 last_detail = type(error).__name__
             print('Render ' + label + ' is live but not ready yet: ' + last_detail, flush=True)
             time.sleep(10)
-        raise RuntimeError('Render ' + label + ' readiness did not recover within 5 minutes: ' + last_detail)
+        raise RuntimeError('Render ' + label + ' readiness did not recover within 12 minutes: ' + last_detail)
     def await_deploy(service, identifier, label, readiness_origin=None):
         endpoint = service_endpoint(service) + '/deploys'
         deadline = time.monotonic() + 1800

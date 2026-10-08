@@ -7,10 +7,12 @@ import sys
 from threading import Thread
 from urllib.parse import urlparse, unquote
 
+startup_stage = 'database migrations are in progress'
+
 class StartupHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         live = self.path == '/health/live'
-        body = b'Live: database migrations are in progress\n' if live else b'Starting: database migrations are in progress\n'
+        body = (('Live: ' if live else 'Starting: ') + startup_stage + '\n').encode()
         self.send_response(200 if live else 503)
         self.send_header('Content-Type', 'text/plain; charset=utf-8')
         self.send_header('Content-Length', str(len(body)))
@@ -99,18 +101,28 @@ def configure():
 
 def migrate_databases(role='all'):
     """Apply idempotent migrations before any service begins accepting work."""
+    global startup_stage
     if role in ('all', 'web'):
-        subprocess.run(['node', 'scripts/migrate-dashboard.mjs'], cwd='/app', check=True)
+        startup_stage = 'dashboard database migrations are in progress'
+        print('Starting dashboard database migrations.', flush=True)
+        subprocess.run(['node', 'scripts/migrate-dashboard.mjs'], cwd='/app', check=True, timeout=600)
+        print('Dashboard database migrations completed.', flush=True)
+        startup_stage = 'device database migrations are in progress'
+        print('Starting device database migrations.', flush=True)
         device_env = {
             **os.environ,
             'ConnectionStrings__DefaultConnection': os.environ['DEVICE_DATABASE_CONNECTION'],
             'MIGRATION_ONLY': 'true',
             'APPLY_DATABASE_MIGRATIONS': 'true',
         }
-        subprocess.run(['dotnet', '/services/device/DeviceService.dll'], env=device_env, check=True)
+        subprocess.run(['dotnet', '/services/device/DeviceService.dll'], env=device_env, check=True, timeout=600)
+        print('Device database migrations completed.', flush=True)
     if role in ('all', 'worker'):
+        startup_stage = 'telemetry database migrations are in progress'
+        print('Starting telemetry database migrations.', flush=True)
         telemetry_env = {**os.environ, 'PostgresConnectionString': os.environ['TELEMETRY_DATABASE_CONNECTION']}
-        subprocess.run(['dotnet', '/services/telemetry/TelemetryService.dll', '--migrate'], env=telemetry_env, check=True)
+        subprocess.run(['dotnet', '/services/telemetry/TelemetryService.dll', '--migrate'], env=telemetry_env, check=True, timeout=600)
+        print('Telemetry database migrations completed.', flush=True)
 
 if __name__ == '__main__':
     startup_server = None
