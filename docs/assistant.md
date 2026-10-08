@@ -2,6 +2,8 @@
 
 The Assistant combines approved application guides with a small, current snapshot from the Smart Factory API. It can explain workflows and answer questions about visible assets, connected gateway/device status, recent telemetry, and incidents. It is advisory and read-only; it cannot issue equipment commands.
 
+Its fixed product identity is **Smart Factory Assistant**. Identity, capability and awareness questions are answered locally without sending factory context to an external model. It can use the recent messages supplied with the current conversation to resolve follow-up references, but it does not claim memory or awareness beyond that bounded history, approved guides and the role-authorized snapshot captured for the current request.
+
 ## Provider setup
 
 Provider settings belong in the backend environment (`.env.local` for local Compose or the deployment platform's secret settings). Never add provider credentials to `VITE_*` variables, frontend code, source control, screenshots, or support logs.

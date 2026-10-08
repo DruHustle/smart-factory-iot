@@ -50,6 +50,31 @@ afterEach(() => {
 });
 
 describe("Smart Factory documentation assistant", () => {
+  it("answers identity questions directly without retrieval or provider noise", async () => {
+    vi.stubEnv("ASSISTANT_PROVIDER", "openai_compatible");
+    vi.stubEnv("ASSISTANT_GEMINI_API_KEY", "unit-test-key");
+    const provider = vi.fn();
+    vi.stubGlobal("fetch", provider);
+
+    const result = await answerFactoryQuestion("What's your name?");
+
+    expect(result.answer).toContain("Smart Factory Assistant");
+    expect(result.answer).toContain("read-only");
+    expect(result.sources).toEqual([]);
+    expect(result.provider).toBe("local");
+    expect(provider).not.toHaveBeenCalled();
+    expect(database.getAssets).not.toHaveBeenCalled();
+  });
+
+  it("states its bounded awareness without claiming unrestricted memory", async () => {
+    const result = await answerFactoryQuestion("What are you aware of?");
+
+    expect(result.answer).toContain("recent messages");
+    expect(result.answer).toContain("authorized");
+    expect(result.answer).toContain("do not have unrestricted system access");
+    expect(database.getAssets).not.toHaveBeenCalled();
+  });
+
   it("gives an actionable troubleshooting procedure with current incident evidence", async () => {
     const result = await answerFactoryQuestion("Troubleshoot a critical temperature incident on Compressor 01");
     expect(result.answer).toContain("Assign technician");
