@@ -41,21 +41,21 @@ export default function Home() {
     onError: (error) => toast.error(`Demo data could not be changed: ${error.message}`),
   });
   const overview = trpc.analytics.getOverview.useQuery(undefined, { refetchInterval: 30_000 });
-  const gatewaysQuery = trpc.devices.list.useQuery({ type: "gateway" }, { refetchInterval: 30_000 });
-  const edgeDevicesQuery = trpc.devices.list.useQuery({ type: "edge_device" }, { refetchInterval: 30_000 });
+  const devicesQuery = trpc.devices.list.useQuery(undefined, { refetchInterval: 30_000 });
   const assetsQuery = trpc.assets.list.useQuery(undefined, { refetchInterval: 30_000 });
   const activeAlertsQuery = trpc.alerts.list.useQuery({ openOnly: true, limit: 5 }, { refetchInterval: 15_000 });
 
-  const gateways = gatewaysQuery.data ?? [];
-  const edgeDevices = edgeDevicesQuery.data ?? [];
+  const devices = devicesQuery.data ?? [];
+  const gateways = devices.filter((device) => device.type === "gateway");
+  const edgeDevices = devices.filter((device) => device.type !== "gateway");
   const assets = assetsQuery.data ?? [];
   const activeAlerts = activeAlertsQuery.data ?? [];
   const onlineGateways = gateways.filter((gateway) => gateway.status === "online").length;
   const onlineEdgeDevices = edgeDevices.filter((device) => device.status === "online").length;
   const maintenanceAssets = assets.filter((asset) => asset.lifecycleStage === "maintenance").length;
   const canControlDemoData = canViewEngineering(user?.role);
-  const isLoading = overview.isLoading || gatewaysQuery.isLoading || edgeDevicesQuery.isLoading || assetsQuery.isLoading;
-  const hasError = overview.isError || gatewaysQuery.isError || edgeDevicesQuery.isError || assetsQuery.isError || activeAlertsQuery.isError;
+  const isLoading = overview.isLoading || devicesQuery.isLoading || assetsQuery.isLoading;
+  const hasError = overview.isError || devicesQuery.isError || assetsQuery.isError || activeAlertsQuery.isError;
 
   const gatewayStatus = useMemo(() => [
     { label: "Online", value: gateways.filter((gateway) => gateway.status === "online").length, icon: Wifi },
@@ -72,7 +72,7 @@ export default function Home() {
   ], [edgeDevices]);
 
   const refresh = async () => {
-    await Promise.all([overview.refetch(), gatewaysQuery.refetch(), edgeDevicesQuery.refetch(), assetsQuery.refetch(), activeAlertsQuery.refetch()]);
+    await Promise.all([overview.refetch(), devicesQuery.refetch(), assetsQuery.refetch(), activeAlertsQuery.refetch()]);
   };
 
   return (
