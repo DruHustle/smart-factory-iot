@@ -150,10 +150,6 @@ export default function Login() {
             </Button>
           </form>
 
-          <div className="text-center text-sm text-muted-foreground">
-            Accounts and password changes are managed by your administrator.
-          </div>
-
           {/* Demo Accounts Section */}
           {demoAccountsQuery.isLoading && (
             <p className="text-xs text-center text-muted-foreground" role="status">

@@ -27,7 +27,7 @@ test("account routes and the signed-out flow render", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /smart factory iot/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /forgot password\?/i })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /sign up/i })).toHaveCount(0);
-  await expect(page.getByText(/accounts and password changes are managed by your administrator/i)).toBeVisible();
+  await expect(page.getByText(/accounts and password changes are managed by your administrator/i)).toHaveCount(0);
   await page.goto("/#/forgot-password");
   await expect(page.getByRole("heading", { name: /password assistance/i })).toBeVisible();
   await expect(page.getByText(/self-service password reset is not available/i)).toBeVisible();
