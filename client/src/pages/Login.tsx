@@ -9,12 +9,26 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, Factory, Lock, Mail, Eye, EyeOff, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { Factory, Lock, Mail, Eye, EyeOff } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { safeSessionStorage } from "@/lib/storage";
+
+const DEMO_ACCOUNT_CACHE_KEY = "smart-factory:demo-account-shortcuts:v1";
+type DemoAccountShortcut = { label: string; email: string; password: string; role: "admin" | "viewer" | "operator" | "engineer"; description: string };
+
+function cachedDemoAccounts(): DemoAccountShortcut[] {
+  try {
+    const parsed: unknown = JSON.parse(safeSessionStorage.getItem(DEMO_ACCOUNT_CACHE_KEY) ?? "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is DemoAccountShortcut => Boolean(item && typeof item === "object"
+      && typeof item.label === "string" && typeof item.email === "string" && typeof item.password === "string"
+      && typeof item.description === "string" && ["admin", "viewer", "operator", "engineer"].includes(String(item.role))));
+  } catch { return []; }
+}
 
 export default function Login() {
   const { login } = useAuth();
@@ -23,13 +37,20 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [lastConfirmedDemoAccounts, setLastConfirmedDemoAccounts] = useState<DemoAccountShortcut[]>(cachedDemoAccounts);
   const demoAccountsQuery = trpc.auth.demoAccounts.useQuery(undefined, {
     retry: 3,
     retryDelay: (attempt) => Math.min(1_000 * 2 ** attempt, 5_000),
     refetchOnWindowFocus: true,
     staleTime: 30_000,
   });
-  const demoAccounts = demoAccountsQuery.data ?? [];
+  useEffect(() => {
+    if (!demoAccountsQuery.data) return;
+    setLastConfirmedDemoAccounts(demoAccountsQuery.data);
+    if (demoAccountsQuery.data.length) safeSessionStorage.setItem(DEMO_ACCOUNT_CACHE_KEY, JSON.stringify(demoAccountsQuery.data));
+    else safeSessionStorage.removeItem(DEMO_ACCOUNT_CACHE_KEY);
+  }, [demoAccountsQuery.data]);
+  const demoAccounts = demoAccountsQuery.data ?? lastConfirmedDemoAccounts;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,33 +172,13 @@ export default function Login() {
           </form>
 
           {/* Demo Accounts Section */}
-          {demoAccountsQuery.isLoading && (
+          {demoAccountsQuery.isLoading && demoAccounts.length === 0 && (
             <p className="text-xs text-center text-muted-foreground" role="status">
               Loading demo accounts…
             </p>
           )}
 
-          {demoAccountsQuery.isError && (
-            <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/10 p-3" role="alert">
-              <div className="flex items-start gap-2 text-xs text-destructive">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                <p>Demo accounts are temporarily unavailable. Your accounts have not been removed.</p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={demoAccountsQuery.isFetching}
-                onClick={() => void demoAccountsQuery.refetch()}
-                className="w-full text-xs border-white/20 hover:bg-white/10"
-              >
-                <RefreshCw className={`mr-2 h-3.5 w-3.5 ${demoAccountsQuery.isFetching ? "animate-spin" : ""}`} />
-                {demoAccountsQuery.isFetching ? "Retrying…" : "Retry demo accounts"}
-              </Button>
-            </div>
-          )}
-
-          {demoAccountsQuery.isSuccess && demoAccounts.length > 0 && <div className="space-y-3">
+          {demoAccounts.length > 0 && <div className="space-y-3">
             <p className="text-xs text-center text-muted-foreground">
               Demo Accounts (click to fill):
             </p>
