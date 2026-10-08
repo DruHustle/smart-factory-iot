@@ -71,6 +71,8 @@ requireText(renderDeploy, /\/rollback'[\s\S]*\{'deployId': deploy_id\}/,
   'Render release must use the rollback API after a partial failure');
 requireText(renderDeploy, /for label, service, readiness_origin in reversed\(changed\)/,
   'Render release must roll back changed services in reverse order');
+requireText(renderDeploy, /deadline = time\.monotonic\(\) \+ 300[\s\S]*readiness did not recover within 5 minutes/,
+  'Render release must tolerate bounded transient readiness failures before rollback');
 
 const programs = [...supervisor.matchAll(/^\[program:([^\]]+)\]$/gm)].map(match => match[1]).sort();
 const expectedPrograms = ['analytics', 'api', 'device', 'identity', 'notification', 'telemetry'];

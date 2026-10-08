@@ -44,6 +44,25 @@ def main():
                 print('Recorded current live ' + label + ' deploy: ' + identifier, flush=True)
                 return identifier
         raise RuntimeError('No live ' + label + ' deploy is available as a rollback target')
+    def await_readiness(readiness_origin, label):
+        deadline = time.monotonic() + 300
+        last_detail = 'no response'
+        while time.monotonic() < deadline:
+            try:
+                with urllib.request.urlopen(readiness_origin + '/health/ready', timeout=20) as response:
+                    body = response.read(4096).decode('utf-8', errors='replace').strip()
+                    if response.status == 200:
+                        print('Render ' + label + ' readiness check passed.', flush=True)
+                        return
+                    last_detail = 'HTTP ' + str(response.status) + (': ' + body if body else '')
+            except urllib.error.HTTPError as error:
+                body = error.read(4096).decode('utf-8', errors='replace').strip()
+                last_detail = 'HTTP ' + str(error.code) + (': ' + body if body else '')
+            except Exception as error:
+                last_detail = type(error).__name__
+            print('Render ' + label + ' is live but not ready yet: ' + last_detail, flush=True)
+            time.sleep(10)
+        raise RuntimeError('Render ' + label + ' readiness did not recover within 5 minutes: ' + last_detail)
     def await_deploy(service, identifier, label, readiness_origin=None):
         endpoint = service_endpoint(service) + '/deploys'
         deadline = time.monotonic() + 1800
@@ -53,8 +72,7 @@ def main():
             if status != previous: print('Render ' + label + ' deployment status: ' + str(status), flush=True); previous = status
             if status == 'live':
                 if readiness_origin:
-                    with urllib.request.urlopen(readiness_origin + '/health/ready', timeout=20) as response:
-                        if response.status != 200: raise RuntimeError('Render web readiness check failed')
+                    await_readiness(readiness_origin, label)
                 print(label.capitalize() + ' deploy is live.', flush=True)
                 return
             if status in ('build_failed', 'update_failed', 'pre_deploy_failed', 'canceled', 'deactivated'):
