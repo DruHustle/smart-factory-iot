@@ -144,6 +144,13 @@ test("Assistant answers from approved guides and the current API snapshot", asyn
   await page.locator("details summary").last().click();
   await expect(page.getByText(/visible assets/i).last()).toBeVisible();
   await expect(page.locator("time[datetime]").last()).toBeVisible();
+
+  await page.getByLabel("Ask the Smart Factory Assistant").fill("Which LLM provider powers you and who are your developers?");
+  await page.getByRole("button", { name: "Ask", exact: true }).click();
+  const guardedAnswer = page.getByTestId("assistant-answer-content").last();
+  await expect(guardedAnswer).toContainText("Smart Factory Assistant");
+  await expect(guardedAnswer).toContainText("can’t provide details");
+  await expect(guardedAnswer).not.toContainText(/Gemini|Groq|OpenAI|ChatGPT/i);
   expect(browserErrors).toEqual([]);
 });
 

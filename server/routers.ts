@@ -711,11 +711,14 @@ export const appRouter = router({
       question: z.string().trim().min(3).max(500),
       selectedAssetId: z.string().trim().min(3).max(128).optional(),
       history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(1200) })).max(12).optional(),
-    })).mutation(({ input, ctx }) => answerFactoryQuestion(input.question, {
-      role: ctx.user.role,
-      selectedAssetId: input.selectedAssetId,
-      history: input.history,
-    })),
+    })).mutation(async ({ input, ctx }) => {
+      const { provider: _provider, model: _model, ...publicResult } = await answerFactoryQuestion(input.question, {
+        role: ctx.user.role,
+        selectedAssetId: input.selectedAssetId,
+        history: input.history,
+      });
+      return publicResult;
+    }),
   }),
 });
 

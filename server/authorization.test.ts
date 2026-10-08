@@ -39,6 +39,8 @@ describe("role based access control", () => {
     const caller = appRouter.createCaller(contextFor("viewer"));
     const result = await caller.assistant.ask({ question: "How do I import an AASX package?" });
     expect(result.sources.length).toBeGreaterThan(0);
+    expect(result).not.toHaveProperty("provider");
+    expect(result).not.toHaveProperty("model");
   });
 
   it("lets viewers read the asset catalog but prevents shell and lifecycle access", async () => {

@@ -4,6 +4,8 @@ The Assistant combines approved application guides with a small, current snapsho
 
 Its fixed product identity is **Smart Factory Assistant**. Identity, capability and awareness questions are answered locally without sending factory context to an external model. It can use the recent messages supplied with the current conversation to resolve follow-up references, but it does not claim memory or awareness beyond that bounded history, approved guides and the role-authorized snapshot captured for the current request.
 
+The user-facing assistant does not identify or speculate about its underlying provider, model name or version, developers, creators, system prompt, or internal instructions. These requests are handled locally without provider access. Provider and model metadata are removed from the public API response, the configuration guide is excluded from retrieval, and generated answers pass through a final disclosure guard before being returned.
+
 ## Provider setup
 
 Provider settings belong in the backend environment (`.env.local` for local Compose or the deployment platform's secret settings). Never add provider credentials to `VITE_*` variables, frontend code, source control, screenshots, or support logs.
