@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import { safeLocalStorage, safeSessionStorage } from "@/lib/storage";
 import { announceSessionExpired, isUnauthorizedError } from "@/lib/session-expiry";
+import { userFacingApiError } from "@/lib/errors";
 import App from "./App";
 import "./index.css";
 
@@ -14,6 +15,16 @@ safeLocalStorage.removeItem("token");
 safeSessionStorage.removeItem("token");
 
 function handleProtectedRequestError(error: unknown) {
+  // Every tRPC query and mutation passes through React Query. Normalize its
+  // shared Error object before page-level renderers or toast callbacks use it.
+  // Server logs retain full technical details; users never see proxy/HTML or
+  // JSON parser fragments.
+  if (error instanceof Error) {
+    error.message = userFacingApiError(
+      error,
+      "The application service is temporarily unavailable. Check your connection and try again.",
+    );
+  }
   if (!isUnauthorizedError(error)) return;
   // A protected query can otherwise keep rendering its last successful data
   // after the HttpOnly session cookie expires. Clear the entire authenticated

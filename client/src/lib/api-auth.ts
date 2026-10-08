@@ -8,6 +8,7 @@ import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import superjson from "superjson";
 import type { User } from "../../../drizzle/schema";
 import type { AppRouter } from "../../../server/routers";
+import { userFacingApiError } from "./errors";
 export type PublicUser = Omit<User, "password">;
 
 export interface AuthResponse {
@@ -39,10 +40,7 @@ const trpcAuthClient = createTRPCProxyClient<AppRouter>({
 });
 
 function getErrorMessage(error: unknown, fallback: string): string {
-  if (error && typeof error === "object" && "message" in error && typeof (error as { message?: unknown }).message === "string") {
-    return (error as { message: string }).message;
-  }
-  return fallback;
+  return userFacingApiError(error, fallback);
 }
 
 export async function login(email: string, password: string): Promise<AuthResponse> {

@@ -12,6 +12,7 @@ import { Download, Layers, Pencil, Plus, RefreshCw, Search, ChevronLeft, Chevron
 import { CreateAssetDialog } from "@/components/CreateAssetDialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { userFacingApiError } from "@/lib/errors";
 
 const PAGE_SIZE = 25;
 
@@ -71,7 +72,7 @@ export default function Assets() {
           {isLoading ? (
             <div role="status" className="flex justify-center gap-3 py-12 text-sm text-muted-foreground"><RefreshCw aria-hidden="true" className="h-6 w-6 animate-spin" />Loading industrial assets…</div>
           ) : isError ? (
-            <div role="alert" className="flex flex-col items-center gap-3 py-12 text-center"><p className="text-sm text-destructive">Industrial assets could not be loaded. {error?.message}</p><Button variant="outline" size="sm" onClick={() => void refetch()}>Try again</Button></div>
+            <div role="alert" className="flex flex-col items-center gap-3 py-12 text-center"><p className="text-sm text-destructive">Industrial assets could not be loaded. {userFacingApiError(error, "The application service is temporarily unavailable. Check your connection and try again.")}</p><Button variant="outline" size="sm" onClick={() => void refetch()}>Try again</Button></div>
           ) : pageAssets.length ? (
             <div className="overflow-x-auto">
               <Table>
