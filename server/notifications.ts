@@ -48,8 +48,11 @@ export function notificationConfiguration() {
   const provider = (process.env.EMAIL_PROVIDER ?? "resend").toLowerCase();
   const emailConfigured = provider === "ses"
     ? process.env.SES_ENABLED === "true" && Boolean(process.env.SES_FROM)
-    : ["RESEND_API_KEY", "RESEND_FROM", "RESEND_ALLOWED_RECIPIENT_DOMAINS"].every(key => Boolean(process.env[key]));
-  return [{ provider: provider === "ses" ? "Amazon SES" : "Resend", inboxEnabled: true,
+    : provider === "smtp"
+      ? ["SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_FROM"].every(key => Boolean(process.env[key]))
+      : ["RESEND_API_KEY", "RESEND_FROM", "RESEND_ALLOWED_RECIPIENT_DOMAINS"].every(key => Boolean(process.env[key]));
+  const providerName = provider === "ses" ? "Amazon SES" : provider === "smtp" ? "Gmail SMTP" : "Resend";
+  return [{ provider: providerName, inboxEnabled: true,
     emailConfigured,
     workerEnabled: ["render-bundle", "compose", "local"].includes(process.env.BACKEND_DEPLOYMENT_MODE ?? "") }];
 }
