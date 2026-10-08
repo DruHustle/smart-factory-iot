@@ -1,12 +1,13 @@
 import { readFile } from 'node:fs/promises';
 
 const read = name => readFile(name, 'utf8');
-const [release, vercelText, dockerfile, supervisor, entrypoint, guide] = await Promise.all([
+const [release, vercelText, dockerfile, supervisor, entrypoint, renderDeploy, guide] = await Promise.all([
   read('.github/workflows/release.yml'),
   read('vercel.json'),
   read('deploy/render/Dockerfile'),
   read('deploy/render/supervisord.conf'),
   read('deploy/render/entrypoint.py'),
+  read('scripts/deploy-render.py'),
   read('RENDER_DEPLOYMENT.md'),
 ]);
 
@@ -62,6 +63,14 @@ requireText(supervisor, /autostart=%\(ENV_WEB_AUTOSTART\)s/, 'web processes must
 requireText(supervisor, /autostart=%\(ENV_WORKER_AUTOSTART\)s/, 'worker processes must be role-gated');
 requireText(entrypoint, /live = self\.path == '\/health\/live'[\s\S]*self\.send_response\(200 if live else 503\)/,
   'migration startup listener must expose liveness without reporting readiness');
+requireText(renderDeploy, /current_live_deploy\(worker_service, 'worker'\)/,
+  'Render release must snapshot the live worker deploy before mutation');
+requireText(renderDeploy, /current_live_deploy\(web_service, 'web'\)/,
+  'Render release must snapshot the live web deploy before mutation');
+requireText(renderDeploy, /\/rollback'[\s\S]*\{'deployId': deploy_id\}/,
+  'Render release must use the rollback API after a partial failure');
+requireText(renderDeploy, /for label, service, readiness_origin in reversed\(changed\)/,
+  'Render release must roll back changed services in reverse order');
 
 const programs = [...supervisor.matchAll(/^\[program:([^\]]+)\]$/gm)].map(match => match[1]).sort();
 const expectedPrograms = ['analytics', 'api', 'device', 'identity', 'notification', 'telemetry'];

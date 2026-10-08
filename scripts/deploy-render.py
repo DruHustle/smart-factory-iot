@@ -1,4 +1,4 @@
-"""Deploy the reviewed digest through Render's API and await that deploy becoming live."""
+"""Atomically deploy the reviewed digest to Render, rolling back both services on failure."""
 import json, os, re, time, urllib.request, urllib.error
 
 def main():
@@ -10,32 +10,42 @@ def main():
     origin = os.environ['RENDER_WEB_API_ORIGIN'].rstrip('/')
     if not re.fullmatch(r'https://[a-zA-Z0-9.-]+(?::443)?', origin): raise ValueError('Render origin must use HTTPS')
     def api(url, body=None):
-        request = urllib.request.Request(url, data=json.dumps(body).encode() if body else None,
-          headers={
-              'Accept': 'application/json',
-              'Authorization': 'Bearer ' + os.environ['RENDER_API_KEY'],
-              'Content-Type': 'application/json',
-          })
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response: return json.load(response)
-        except urllib.error.HTTPError as error:
-            # Render returns the actionable validation reason in the response
-            # body. Keep it visible in CI while limiting untrusted output size.
-            detail = error.read(4096).decode('utf-8', errors='replace').strip()
+        for attempt in range(5):
+            request = urllib.request.Request(url, data=json.dumps(body).encode() if body is not None else None,
+              headers={
+                  'Accept': 'application/json',
+                  'Authorization': 'Bearer ' + os.environ['RENDER_API_KEY'],
+                  'Content-Type': 'application/json',
+              })
             try:
-                payload = json.loads(detail)
-                detail = payload.get('message') or payload.get('error') or detail
-            except (json.JSONDecodeError, AttributeError):
-                pass
-            suffix = ': ' + str(detail).replace('\r', ' ').replace('\n', ' ') if detail else ''
-            raise RuntimeError('Render API HTTP ' + str(error.code) + suffix) from None
-        except Exception: raise RuntimeError('Render API request failed') from None
-    def deploy_service(service, label, readiness_origin=None):
-        if not re.fullmatch(r'srv-[a-z0-9]+', service): raise ValueError('Invalid Render ' + label + ' service ID')
-        endpoint = 'https://api.render.com/v1/services/' + service + '/deploys'
-        deploy = api(endpoint, {'imageUrl': image})
-        identifier = deploy.get('id')
-        if not identifier or not re.fullmatch(r'dep-[a-z0-9]+', identifier): raise RuntimeError('Render did not return a deploy ID')
+                with urllib.request.urlopen(request, timeout=30) as response: return json.load(response)
+            except urllib.error.HTTPError as error:
+                detail = error.read(4096).decode('utf-8', errors='replace').strip()
+                try:
+                    payload = json.loads(detail)
+                    detail = payload.get('message') or payload.get('error') or detail
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+                if error.code not in (429, 500, 502, 503, 504) or attempt == 4:
+                    suffix = ': ' + str(detail).replace('\r', ' ').replace('\n', ' ') if detail else ''
+                    raise RuntimeError('Render API HTTP ' + str(error.code) + suffix) from None
+            except Exception as error:
+                if attempt == 4: raise RuntimeError('Render API request failed: ' + type(error).__name__) from None
+            time.sleep(2 ** attempt)
+    def service_endpoint(service):
+        if not re.fullmatch(r'srv-[a-z0-9]+', service): raise ValueError('Invalid Render service ID')
+        return 'https://api.render.com/v1/services/' + service
+    def current_live_deploy(service, label):
+        listing = api(service_endpoint(service) + '/deploys?limit=20')
+        for item in listing:
+            deploy = item.get('deploy', item)
+            identifier = str(deploy.get('id', ''))
+            if deploy.get('status') == 'live' and re.fullmatch(r'dep-[a-z0-9]+', identifier):
+                print('Recorded current live ' + label + ' deploy: ' + identifier, flush=True)
+                return identifier
+        raise RuntimeError('No live ' + label + ' deploy is available as a rollback target')
+    def await_deploy(service, identifier, label, readiness_origin=None):
+        endpoint = service_endpoint(service) + '/deploys'
         deadline = time.monotonic() + 1800
         previous = None
         while time.monotonic() < deadline:
@@ -45,17 +55,50 @@ def main():
                 if readiness_origin:
                     with urllib.request.urlopen(readiness_origin + '/health/ready', timeout=20) as response:
                         if response.status != 200: raise RuntimeError('Render web readiness check failed')
-                print('Reviewed ' + label + ' digest is live.')
+                print(label.capitalize() + ' deploy is live.', flush=True)
                 return
             if status in ('build_failed', 'update_failed', 'pre_deploy_failed', 'canceled', 'deactivated'):
                 raise RuntimeError('Render ' + label + ' release failed: ' + status)
             time.sleep(10)
         raise TimeoutError('Render ' + label + ' release did not become live within 30 minutes')
+    def trigger_service(service):
+        deploy = api(service_endpoint(service) + '/deploys', {'imageUrl': image})
+        identifier = deploy.get('id')
+        if not identifier or not re.fullmatch(r'dep-[a-z0-9]+', identifier): raise RuntimeError('Render did not return a deploy ID')
+        return identifier
+    def rollback_service(service, deploy_id, label, readiness_origin=None):
+        print('Rolling back ' + label + ' to ' + deploy_id + '.', flush=True)
+        rollback = api(service_endpoint(service) + '/rollback', {'deployId': deploy_id})
+        identifier = rollback.get('id')
+        if not identifier or not re.fullmatch(r'dep-[a-z0-9]+', identifier):
+            raise RuntimeError('Render did not return a rollback deploy ID for ' + label)
+        await_deploy(service, identifier, label + ' rollback', readiness_origin)
 
     # Start the durable consumer first; ingestion IDs make the short migration
     # overlap idempotent. Then replace the legacy all-in-one service with web-only.
-    deploy_service(os.environ['RENDER_WORKER_SERVICE_ID'], 'worker')
-    deploy_service(os.environ['RENDER_WEB_SERVICE_ID'], 'web', origin)
+    worker_service = os.environ['RENDER_WORKER_SERVICE_ID']
+    web_service = os.environ['RENDER_WEB_SERVICE_ID']
+    rollback_targets = {
+        'worker': current_live_deploy(worker_service, 'worker'),
+        'web': current_live_deploy(web_service, 'web'),
+    }
+    changed = []
+    try:
+        changed.append(('worker', worker_service, None))
+        await_deploy(worker_service, trigger_service(worker_service), 'worker')
+        changed.append(('web', web_service, origin))
+        await_deploy(web_service, trigger_service(web_service), 'web', origin)
+        print('Reviewed worker and web digest are live and ready.', flush=True)
+    except Exception as release_error:
+        rollback_errors = []
+        for label, service, readiness_origin in reversed(changed):
+            try:
+                rollback_service(service, rollback_targets[label], label, readiness_origin)
+            except Exception as rollback_error:
+                rollback_errors.append(label + ': ' + str(rollback_error))
+        if rollback_errors:
+            raise RuntimeError(str(release_error) + '; rollback failures: ' + '; '.join(rollback_errors)) from None
+        raise RuntimeError(str(release_error) + '; all changed Render services were rolled back') from None
 
 if __name__ == '__main__':
     try: main()
