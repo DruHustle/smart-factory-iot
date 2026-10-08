@@ -392,7 +392,8 @@ test("admin can inspect demo AAS data and manage user access", async ({ page }) 
   const amlXml = await readFile(await amlDownload.path(), "utf8");
   expect(amlXml).toContain("urn:demo:asset:compressor-01");
 
-  await page.getByRole("button", { name: /^open /i }).first().click();
+  const demoAssetRow = page.getByRole("row").filter({ hasText: "Compressed Air Compressor 01" });
+  await demoAssetRow.getByRole("button", { name: "Open Compressed Air Compressor 01" }).click();
   await expect(page.getByText("Asset Administration Shell")).toBeVisible();
   await expect(page.getByText("Simulated engineering data.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "AAS submodels" })).toBeVisible();
@@ -516,7 +517,8 @@ test("viewer sees asset summaries while engineering and admin screens stay hidde
   await expect(page.getByRole("button", { name: "User Access" })).toHaveCount(0);
   await page.getByRole("button", { name: "Assets", exact: true }).click();
   await expect(page.getByText("Compressed Air Compressor 01")).toBeVisible();
-  await expect(page.getByRole("button", { name: /^open /i })).toHaveCount(0);
+  const assetRow = page.getByRole("row").filter({ hasText: "Compressed Air Compressor 01" });
+  await expect(assetRow.getByRole("button", { name: "Open Compressed Air Compressor 01" })).toHaveCount(0);
   const aasAccess = await page.evaluate(async () => (await fetch("/api/aas/shells")).status);
   expect(aasAccess).toBe(403);
 });
@@ -528,7 +530,8 @@ test("operator can acknowledge alerts but cannot open AAS or user administration
   await expect(page.getByRole("button", { name: "User Access" })).toHaveCount(0);
   await page.getByRole("button", { name: "Assets", exact: true }).click();
   await expect(page.getByText("Compressed Air Compressor 01")).toBeVisible();
-  await expect(page.getByRole("button", { name: /^open /i })).toHaveCount(0);
+  const assetRow = page.getByRole("row").filter({ hasText: "Compressed Air Compressor 01" });
+  await expect(assetRow.getByRole("button", { name: "Open Compressed Air Compressor 01" })).toHaveCount(0);
 });
 
 test("engineer can open AAS while user administration remains admin-only", async ({ page }) => {
