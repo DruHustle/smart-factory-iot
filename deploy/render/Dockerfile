@@ -57,5 +57,5 @@ ENV NODE_ENV=production ASPNETCORE_ENVIRONMENT=Production DOTNET_ENVIRONMENT=Pro
 USER app
 EXPOSE 10000
 HEALTHCHECK --interval=15s --timeout=6s --start-period=60s --retries=3 \
-    CMD curl --fail --silent http://127.0.0.1:${PORT:-10000}/health/ready || exit 1
+    CMD curl --fail --silent http://127.0.0.1:${PORT:-10000}/health/live || exit 1
 ENTRYPOINT ["python3", "/app/deploy/render/entrypoint.py"]
