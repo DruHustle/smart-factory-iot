@@ -42,16 +42,20 @@ export default function Home() {
   });
   const overview = trpc.analytics.getOverview.useQuery(undefined, { refetchInterval: 30_000 });
   const gatewaysQuery = trpc.devices.list.useQuery({ type: "gateway" }, { refetchInterval: 30_000 });
+  const edgeDevicesQuery = trpc.devices.list.useQuery({ type: "edge_device" }, { refetchInterval: 30_000 });
   const assetsQuery = trpc.assets.list.useQuery(undefined, { refetchInterval: 30_000 });
   const activeAlertsQuery = trpc.alerts.list.useQuery({ openOnly: true, limit: 5 }, { refetchInterval: 15_000 });
 
   const gateways = gatewaysQuery.data ?? [];
+  const edgeDevices = edgeDevicesQuery.data ?? [];
   const assets = assetsQuery.data ?? [];
   const activeAlerts = activeAlertsQuery.data ?? [];
   const onlineGateways = gateways.filter((gateway) => gateway.status === "online").length;
+  const onlineEdgeDevices = edgeDevices.filter((device) => device.status === "online").length;
   const maintenanceAssets = assets.filter((asset) => asset.lifecycleStage === "maintenance").length;
-  const isLoading = overview.isLoading || gatewaysQuery.isLoading || assetsQuery.isLoading;
-  const hasError = overview.isError || gatewaysQuery.isError || assetsQuery.isError || activeAlertsQuery.isError;
+  const canControlDemoData = canViewEngineering(user?.role);
+  const isLoading = overview.isLoading || gatewaysQuery.isLoading || edgeDevicesQuery.isLoading || assetsQuery.isLoading;
+  const hasError = overview.isError || gatewaysQuery.isError || edgeDevicesQuery.isError || assetsQuery.isError || activeAlertsQuery.isError;
 
   const gatewayStatus = useMemo(() => [
     { label: "Online", value: gateways.filter((gateway) => gateway.status === "online").length, icon: Wifi },
@@ -60,8 +64,15 @@ export default function Home() {
     { label: "Error", value: gateways.filter((gateway) => gateway.status === "error").length, icon: AlertTriangle },
   ], [gateways]);
 
+  const edgeDeviceStatus = useMemo(() => [
+    { label: "Online", value: edgeDevices.filter((device) => device.status === "online").length, icon: Wifi },
+    { label: "Offline", value: edgeDevices.filter((device) => device.status === "offline").length, icon: WifiOff },
+    { label: "Maintenance", value: edgeDevices.filter((device) => device.status === "maintenance").length, icon: Activity },
+    { label: "Error", value: edgeDevices.filter((device) => device.status === "error").length, icon: AlertTriangle },
+  ], [edgeDevices]);
+
   const refresh = async () => {
-    await Promise.all([overview.refetch(), gatewaysQuery.refetch(), assetsQuery.refetch(), activeAlertsQuery.refetch()]);
+    await Promise.all([overview.refetch(), gatewaysQuery.refetch(), edgeDevicesQuery.refetch(), assetsQuery.refetch(), activeAlertsQuery.refetch()]);
   };
 
   return (
@@ -79,11 +90,11 @@ export default function Home() {
             <Switch
               aria-label="Show demo data"
               checked={demoData.data?.enabled ?? false}
-              disabled={user?.role !== "admin" || demoData.isLoading || setDemoData.isPending}
+              disabled={!canControlDemoData || demoData.isLoading || setDemoData.isPending}
               onCheckedChange={(enabled) => setDemoData.mutate({ enabled })}
             />
             <span>Demo data</span>
-            {user?.role !== "admin" && <span className="sr-only">Administrator access required</span>}
+            {!canControlDemoData && <span className="sr-only">Engineer access required</span>}
           </label>
           <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />Refresh data
@@ -94,9 +105,10 @@ export default function Home() {
       {hasError && <Card role="alert" className="border-destructive/40"><CardContent className="py-4 text-sm text-destructive">Some dashboard data could not be loaded. Refresh the page or check the API connection.</CardContent></Card>}
       {assets.length > 0 && assets.every((asset) => asset.isDemo) && <div className="rounded-md border border-primary/30 bg-primary/5 px-4 py-3 text-sm">This is API-provided simulated asset and telemetry data. Replace it with registered equipment when ready.</div>}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <SummaryCard accent="indigo" title="Industrial assets" value={isLoading ? "…" : assets.length} detail="AAS-backed equipment records" icon={<Factory className="h-5 w-5" />} onClick={() => setLocation("/assets")} />
         <SummaryCard accent="emerald" title="Online gateways" value={isLoading ? "…" : `${onlineGateways} / ${gateways.length}`} detail="Edge gateways" icon={<Wifi className="h-5 w-5" />} onClick={() => setLocation("/devices")} />
+        <SummaryCard accent="emerald" title="Online edge devices" value={isLoading ? "…" : `${onlineEdgeDevices} / ${edgeDevices.length}`} detail="Connected edge devices" icon={<Wifi className="h-5 w-5" />} onClick={() => setLocation("/devices")} />
         <SummaryCard accent="rose" title="Open incidents" value={overview.data?.alerts.open ?? "—"} detail={`${overview.data?.alerts.critical ?? 0} critical · ${overview.data?.alerts.warning ?? 0} warning`} icon={<Bell className="h-5 w-5" />} onClick={() => setLocation("/alerts")} />
         <SummaryCard
           accent="rose"
@@ -111,22 +123,16 @@ export default function Home() {
         <SummaryCard accent="amber" title="In maintenance" value={isLoading ? "…" : maintenanceAssets} detail="Assets in maintenance lifecycle stage" icon={<Activity className="h-5 w-5" />} onClick={() => setLocation("/assets")} />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-5">
-        <Card className="xl:col-span-2">
-          <CardHeader><CardTitle>Gateway connectivity</CardTitle></CardHeader>
-          <CardContent>
-            {gateways.length === 0 ? <EmptyState text="No gateway records yet. Register an edge gateway under Devices." action="Open gateways" onClick={() => setLocation("/devices")} /> : <div className="grid grid-cols-2 gap-3">
-              {gatewayStatus.map(({ label, value, icon: Icon }) => <div key={label} className={`rounded-lg border p-4 ${statusStyles[label.toLowerCase()] ?? ""}`}><div className="flex items-center justify-between text-sm"><span>{label}</span><Icon className="h-4 w-4" /></div><div className="mt-2 text-2xl font-semibold">{value}</div></div>)}
-            </div>}
-          </CardContent>
-        </Card>
+      <div className="grid gap-6 xl:grid-cols-6">
+        <ConnectivityCard title="Gateway connectivity" records={gateways} emptyText="No gateway records yet. Register an edge gateway under Devices." action="Open gateways" statuses={gatewayStatus} onOpen={() => setLocation("/devices")} />
+        <ConnectivityCard title="Edge device connectivity" records={edgeDevices} emptyText="No edge device records yet. Register an edge device under Devices." action="Open edge devices" statuses={edgeDeviceStatus} onOpen={() => setLocation("/devices")} />
 
-        <Card className="xl:col-span-3">
+        <Card className="xl:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0"><CardTitle>Open incidents</CardTitle><Button variant="ghost" size="sm" onClick={() => setLocation("/alerts")}>View queue<ArrowRight className="ml-2 h-4 w-4" /></Button></CardHeader>
           <CardContent>
             {activeAlertsQuery.isLoading ? <p className="py-6 text-center text-sm text-muted-foreground">Loading alerts…</p> : activeAlerts.length === 0 ? <EmptyState text="No open incidents require attention." /> : <div className="space-y-3">
               {activeAlerts.map((alert) => {
-                const source = gateways.find((gateway) => gateway.id === alert.deviceId);
+                const source = [...gateways, ...edgeDevices].find((device) => device.id === alert.deviceId);
                 return <button key={alert.id} className="flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/40" onClick={() => setLocation("/alerts")}>
                   <AlertTriangle className={`mt-0.5 h-4 w-4 shrink-0 ${alert.severity === "critical" ? "text-destructive" : alert.severity === "warning" ? "text-warning" : "text-primary"}`} />
                   <span className="min-w-0 flex-1"><span className="block truncate font-medium">{alert.message}</span><span className="mt-1 block text-xs text-muted-foreground">{source?.name ?? `Connectivity source ${alert.deviceId}`} · {new Date(alert.createdAt).toLocaleString()}</span></span>
@@ -182,6 +188,26 @@ function SummaryCard({ accent, title, value, detail, icon, onClick }: { accent: 
     amber: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
   }[accent];
   return <Card className={`border-t-2 ${accentStyles}`}><CardContent className="flex items-start justify-between gap-4 p-5"><button aria-label={`Open ${title}`} className="min-w-0 flex-1 rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={onClick}><p className="text-sm text-muted-foreground">{title}</p><p className="mt-2 text-3xl font-semibold">{value}</p><p className="mt-1 text-xs text-muted-foreground">{detail}</p></button><span aria-hidden="true" className={`rounded-md p-2 ${iconStyles}`}>{icon}</span></CardContent></Card>;
+}
+
+function ConnectivityCard({ title, records, emptyText, action, statuses, onOpen }: {
+  title: string;
+  records: unknown[];
+  emptyText: string;
+  action: string;
+  statuses: Array<{ label: string; value: number; icon: React.ComponentType<{ className?: string }> }>;
+  onOpen: () => void;
+}) {
+  return <Card className="xl:col-span-2">
+    <CardHeader><CardTitle>{title}</CardTitle></CardHeader>
+    <CardContent>
+      {records.length === 0
+        ? <EmptyState text={emptyText} action={action} onClick={onOpen} />
+        : <div className="grid grid-cols-2 gap-3">
+          {statuses.map(({ label, value, icon: Icon }) => <div key={label} className={`rounded-lg border p-4 ${statusStyles[label.toLowerCase()] ?? ""}`}><div className="flex items-center justify-between text-sm"><span>{label}</span><Icon className="h-4 w-4" /></div><div className="mt-2 text-2xl font-semibold">{value}</div></div>)}
+        </div>}
+    </CardContent>
+  </Card>;
 }
 
 function EmptyState({ text, action, onClick }: { text: string; action?: string; onClick?: () => void }) {

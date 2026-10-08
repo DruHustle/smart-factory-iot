@@ -103,7 +103,7 @@ In local development, set `ENABLE_DEMO_ACCOUNTS=true` and `ENABLE_DEMO_DATA=true
 | Role | Access |
 |---|---|
 | Viewer | Dashboard, device and asset summaries, alerts, analytics, and telemetry history |
-| Operator | Viewer access plus alert acknowledgement and operational reading actions |
+| Operator | Viewer access plus alert acknowledgement, operational reading actions, and commissioned WROVER indicator LED control |
 | Engineer | Operator access plus asset registration, AAS records, lifecycle updates, thresholds, and firmware inventory/history review. OTA delivery is disabled until a verified updater is integrated. |
 | Admin | Engineer access plus user role management and destructive device administration |
 

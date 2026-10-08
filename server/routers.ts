@@ -200,7 +200,7 @@ export const appRouter = router({
       return { deleted: true };
     }),
     getStats: viewerProcedure.query(() => db.getDeviceStats()),
-    pulseIndicator: engineerProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ input, ctx }) => {
+    pulseIndicator: operatorProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ input, ctx }) => {
       const device = await db.getDeviceById(input.id);
       const gatewayDeviceId = typeof device?.metadata?.gatewayId === "string" ? device.metadata.gatewayId : undefined;
       if (!device || device.isDemo || device.type !== "sensor" || !gatewayDeviceId) {

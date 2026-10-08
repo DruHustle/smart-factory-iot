@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { User } from "../drizzle/schema";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
+import * as db from "./db";
 
 function contextFor(role?: User["role"]): TrpcContext {
   const user = role
@@ -26,6 +27,8 @@ function contextFor(role?: User["role"]): TrpcContext {
 }
 
 describe("role based access control", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   it("requires a signed-in account before reading devices", async () => {
     const caller = appRouter.createCaller(contextFor());
     await expect(caller.devices.list()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
@@ -78,11 +81,34 @@ describe("role based access control", () => {
       .rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
+  it("allows operators to invoke the commissioned LED control while viewers remain blocked", async () => {
+    const viewer = appRouter.createCaller(contextFor("viewer"));
+    await expect(viewer.devices.pulseIndicator({ id: 1 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    vi.spyOn(db, "getDeviceById").mockResolvedValue(undefined);
+    const operator = appRouter.createCaller(contextFor("operator"));
+    await expect(operator.devices.pulseIndicator({ id: 1 })).rejects.toThrow("A live gateway-connected WROVER sensor is required");
+  });
+
   it("reserves user and notification administration for admins", async () => {
     const engineer = appRouter.createCaller(contextFor("engineer"));
     await expect(engineer.users.list()).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(engineer.notifications.getConfigs()).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(engineer.system.setDemoData({ enabled: true })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(engineer.users.create({ email: "unauthorized@example.com", name: "Blocked", password: "Blocked-password-123!", role: "admin" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("allows only admins to provision user roles", async () => {
+    const operator = appRouter.createCaller(contextFor("operator"));
+    await expect(operator.users.setRole({ id: 7, role: "engineer" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    const updateUserRole = vi.spyOn(db, "updateUserRole").mockResolvedValue(contextFor("engineer").user!);
+    const admin = appRouter.createCaller(contextFor("admin"));
+    await expect(admin.users.setRole({ id: 7, role: "engineer" })).resolves.toMatchObject({ role: "engineer" });
+    expect(updateUserRole).toHaveBeenCalledWith(7, "engineer");
+  });
+
+  it("allows engineers, but not operators, to control demo data", async () => {
+    const operator = appRouter.createCaller(contextFor("operator"));
+    await expect(operator.system.setDemoData({ enabled: true })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });

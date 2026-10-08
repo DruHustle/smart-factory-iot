@@ -234,7 +234,7 @@ export async function publishAda031Control(input: {
   return { published: true as const, commandId: input.commandId, physicalMotionConfirmed: false as const };
 }
 
-/** Forward an engineer-authorized, short-lived WROVER indicator pulse. */
+/** Forward an operator-authorized, short-lived WROVER indicator pulse. */
 export async function publishWroverIndicator(input: {
   gatewayDeviceId: string;
   targetDeviceId: string;
@@ -253,7 +253,7 @@ export async function publishWroverIndicator(input: {
     redirect: "error",
     signal: AbortSignal.timeout(10_000),
   });
-  if (response.status === 401 || response.status === 403) throw new Error("DeviceService rejected the engineer authorization");
+  if (response.status === 401 || response.status === 403) throw new Error("DeviceService rejected the operator authorization");
   if (!response.ok) throw new Error(`WROVER indicator publication failed (HTTP ${response.status})`);
   const result: unknown = await response.json();
   if (!result || typeof result !== "object" || !("published" in result) || result.published !== true) {

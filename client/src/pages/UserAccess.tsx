@@ -81,9 +81,9 @@ export default function UserAccess() {
       </Card>
       <Card><CardContent className="space-y-2 py-5 text-sm text-muted-foreground">
         <p><strong>Viewer:</strong> device, alert, and operational telemetry views.</p>
-        <p><strong>Operator:</strong> viewer access plus alert acknowledgement and operational actions.</p>
+        <p><strong>Operator:</strong> viewer access plus alert acknowledgement and the commissioned WROVER indicator LED control.</p>
         <p><strong>Engineer:</strong> operator access plus AAS engineering data, lifecycle changes, thresholds, and commissioned controls.</p>
-        <p><strong>Admin:</strong> full access, user-role management, and destructive administration.</p>
+        <p><strong>Admin:</strong> full access, account creation and user-role provisioning, and destructive administration.</p>
       </CardContent></Card>
     </div>
   );

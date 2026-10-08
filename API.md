@@ -11,9 +11,10 @@ The browser calls the Node/Express API, primarily through tRPC at /api/trpc. Pro
 | assets.* | Procedure-specific roles | Asset summaries, engineering records, lifecycle, and gateway mappings |
 | alerts.list, alerts.getStats | Viewer or higher | Read coded incidents, technician assignment, downtime, and resolution metrics |
 | alerts.updateStatus | Operator or higher | Acknowledge an active incident |
+| devices.pulseIndicator | Operator or higher | Publish a bounded, short-lived GPIO18 pulse to a commissioned WROVER through its Pi gateway |
 | alerts.assignees, alerts.assign, alerts.startDowntime, alerts.resolve | Engineer or admin | Assign engineer-role incident responders, record confirmed downtime, and resolve assigned incidents; admins can override |
 | POST /api/assets/import | Engineer/admin session + private .NET service token | Multipart AASX import, limited to 50 MB; original package is retained by the AASX File Server |
-| users.* | Admin | List users and assign roles |
+| users.* | Admin | Create accounts, list users, and provision application roles |
 | /api/internal/telemetry | Independent service bearer token | Validated .NET telemetry bridge |
 | /api/aas/* | Engineer/admin session plus server-side OAuth | Gateway to a private IDTA AAS Environment API |
 

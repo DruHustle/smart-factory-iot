@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { adminProcedure, publicProcedure, router, viewerProcedure } from "./trpc";
+import { adminProcedure, engineerProcedure, publicProcedure, router, viewerProcedure } from "./trpc";
 import * as db from "../db";
 
 export const systemRouter = router({
@@ -15,10 +15,10 @@ export const systemRouter = router({
 
   demoData: viewerProcedure.query(async () => ({ enabled: await db.refreshDemoDataSetting() })),
 
-  setDemoData: adminProcedure
+  setDemoData: engineerProcedure
     .input(z.object({ enabled: z.boolean() }))
     .mutation(async ({ input, ctx }) => {
-      // The toggle is an explicit administrator opt-in, so it may add isolated,
+      // The toggle is an explicit engineering opt-in, so it may add isolated,
       // clearly marked demo records without replacing connected equipment.
       if (input.enabled) await db.initializeDemoScenario({ allowAlongsideLive: true });
       return { enabled: await db.setDemoDataSetting(input.enabled, ctx.user.id) };

@@ -5,7 +5,7 @@ The Node API verifies bcrypt password hashes and issues an eight-hour HS256 JWT 
 | Role | Permissions |
 |---|---|
 | Viewer | Read dashboard, device/asset summaries, alerts, analytics, and telemetry |
-| Operator | Viewer permissions plus operational readings and alert acknowledgement |
+| Operator | Viewer permissions plus operational readings, alert acknowledgement, and commissioned WROVER indicator LED control |
 | Engineer | Operator permissions plus alert assignment/downtime resolution, asset/device registration, AAS details, lifecycle, mappings, thresholds, and read-only firmware inventory/history. OTA delivery is disabled until a verified updater is integrated. |
 | Admin | Engineer permissions plus user and administrative device management |
 

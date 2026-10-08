@@ -15,7 +15,7 @@ const deliveryLabels: Record<string, string> = {
   pending: "Email queued",
   processing: "Email request in progress",
   retrying: "Email retry scheduled",
-  accepted: "Accepted by Resend",
+  accepted: "Accepted by email provider",
   failed: "Email request failed",
   unconfigured: "Email provider not configured",
   no_recipient: "Email recipient not authorized",

@@ -9,9 +9,9 @@ Role checks are enforced by the Node API on every protected request. UI visibili
 | Role | Dashboard | Operations | Engineering | Administration |
 |---|---|---|---|---|
 | Viewer | Read dashboard, devices, asset summaries, readings, alerts, and reports | — | — | — |
-| Operator | Viewer access | Acknowledge alerts and create operational readings | — | — |
+| Operator | Viewer access | Acknowledge alerts, create operational readings, and pulse the commissioned WROVER indicator LED | — | — |
 | Engineer | Operator access | — | Assign incidents to engineer/technician accounts, record downtime, resolve assigned incidents, register devices and assets, inspect AAS and connection data, change lifecycle, configure thresholds, and review firmware records. OTA delivery remains disabled until a verified updater is integrated. | — |
-| Admin | Engineer access | — | — | Assign roles, manage notifications, delete devices |
+| Admin | Engineer access | — | — | Create accounts, provision roles, manage notifications, delete devices |
 
 New registrations receive `viewer`. Only administrators can assign roles. An administrator cannot remove their own admin role. AAS details and machine connection profiles require engineer access; user and notification administration require admin access.
 

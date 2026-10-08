@@ -63,6 +63,8 @@ test("Dashboard, Monitoring, alerts, and Assistant have distinct useful views", 
   await loginAs(page, "viewer");
   await expect(page.getByRole("heading", { name: "Factory Overview" })).toBeVisible();
   await expect(page.getByText("Active downtime", { exact: true })).toBeVisible();
+  await expect(page.getByText("Online edge devices", { exact: true })).toBeVisible();
+  await expect(page.getByText("Edge device connectivity", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Monitoring", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Live Monitoring", exact: true })).toBeVisible();
@@ -176,11 +178,29 @@ test("engineers assign incidents, record downtime, and resolve with a measured d
   await page.getByLabel("Search notifications").fill("Technician assignment changed");
   const notification = page.getByRole("article", { name: "Technician assignment changed notification" }).first();
   await expect(notification).toBeVisible();
+  await expect(notification.getByText("Email queued", { exact: true })).toBeVisible();
+  await expect(notification.getByText("Email attempts", { exact: true })).toBeVisible();
   await page.getByLabel("Notification view").click();
   await page.getByRole("option", { name: "Unread", exact: true }).click();
   await expect(notification).toBeVisible();
   await notification.getByRole("button", { name: /^Open event/ }).click();
   await expect(page.getByRole("heading", { name: "Event SF-MAINT-001" })).toBeVisible();
+});
+
+test("engineers can control demo data while viewers cannot", async ({ page }) => {
+  await loginAs(page, "engineer");
+  const engineerToggle = page.getByLabel("Show demo data");
+  await expect(engineerToggle).toBeEnabled();
+  const wasEnabled = await engineerToggle.isChecked();
+  await engineerToggle.click();
+  await expect(engineerToggle).toBeChecked({ checked: !wasEnabled });
+  await engineerToggle.click();
+  await expect(engineerToggle).toBeChecked({ checked: wasEnabled });
+
+  await page.getByRole("button", { name: "Open account menu" }).click();
+  await page.getByRole("menuitem", { name: /sign out/i }).click();
+  await loginAs(page, "viewer");
+  await expect(page.getByLabel("Show demo data")).toBeDisabled();
 });
 
 test("administrator creates an account without exposing its password", async ({ page }) => {

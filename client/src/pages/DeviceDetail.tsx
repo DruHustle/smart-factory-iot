@@ -50,7 +50,7 @@ import ThresholdConfigDialog from "@/components/ThresholdConfigDialog";
 import { ExportButton } from "@/components/ExportButton";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { canViewEngineering } from "@/lib/access";
+import { canViewEngineering, hasMinimumRole } from "@/lib/access";
 import { getConnectivityRecordId } from "@/lib/device-display";
 
 type DeviceStatus = "online" | "offline" | "maintenance" | "error";
@@ -459,7 +459,7 @@ export default function DeviceDetail() {
                 <div className="p-2 rounded-lg bg-amber-500/10"><Lightbulb className="h-5 w-5 text-amber-500" /></div>
                 <div><p className="font-semibold">Indicator LED</p><p className="text-xs text-muted-foreground">GPIO18 · two-second pulse</p></div>
               </div>
-              {canViewEngineering(user?.role) && <Button size="sm" disabled={pulseIndicator.isPending || wroverHealth !== "healthy"} onClick={() => pulseIndicator.mutate({ id: deviceId })}>{pulseIndicator.isPending ? "Sending…" : "Pulse GPIO18"}</Button>}
+              {hasMinimumRole(user?.role, "operator") && <Button size="sm" disabled={pulseIndicator.isPending || wroverHealth !== "healthy"} onClick={() => pulseIndicator.mutate({ id: deviceId })}>{pulseIndicator.isPending ? "Sending…" : "Pulse GPIO18"}</Button>}
             </CardContent>
           </Card>
         )}
