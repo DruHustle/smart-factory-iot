@@ -4,8 +4,8 @@
   "documents": {
     "architecture.pdf": {
       "source": "architecture.md",
-      "sourceSha256": "5b168535dc7056dcd5bdd04d3ddd51aabaca65848b0f5178c07a311ebb3c92a7",
-      "pdfSha256": "02eaca75c16f1cbea31d6494be9425bb51b992f93f22ecda470eac26d4cb21fe"
+      "sourceSha256": "844247f0a20f326396482122931e4303cc442a417ad8f04064cc151bc87d7eb5",
+      "pdfSha256": "9302a44694b605c94f7ae7b005c9a37892072e582d6be9530bd334af4f88bad7"
     },
     "api-flows.pdf": {
       "source": "api-flows.md",

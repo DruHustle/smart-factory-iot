@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-backend = Path("/Users/andrewgotora/Software Development/GitHub/smart-factory-iot-backend")
-edge = Path("/Users/andrewgotora/Software Development/GitHub/smart-factory-iot-edge")
+backend = Path("/Users/andrewgotora/Software Development/GitHub/smart-factory-iot/smart-factory-iot-backend")
+edge = Path("/Users/andrewgotora/Software Development/GitHub/smart-factory-iot/smart-factory-iot-edge")
 
 
 def write(repo: Path, relative: str, content: str) -> None:

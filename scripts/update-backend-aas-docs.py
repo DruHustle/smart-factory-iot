@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-backend = Path("/Users/andrewgotora/Software Development/GitHub/smart-factory-iot-backend")
+backend = Path("/Users/andrewgotora/Software Development/GitHub/smart-factory-iot/smart-factory-iot-backend")
 
 def replace_once(relative: str, old: str, new: str) -> None:
     path = backend / relative

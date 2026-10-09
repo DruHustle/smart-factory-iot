@@ -22,8 +22,8 @@ Full-stack IoT dashboard with React + Express + tRPC + Drizzle ORM.
 1. Clone and enter the repo.
 
 ```bash
-git clone https://github.com/DruHustle/smart-factory-iot
-cd smart-factory-iot
+git clone https://github.com/DruHustle/smart-factory-iot-frontend
+cd smart-factory-iot-frontend
 ```
 
 2. Install dependencies.
@@ -176,7 +176,7 @@ Use [Vercel/Render and local deployment](RENDER_DEPLOYMENT.md) for required GitH
 ## Project Structure
 
 ```text
-smart-factory-iot/
+smart-factory-iot-frontend/
 ├── client/                 # React frontend
 ├── server/                 # Express backend + tRPC routers
 ├── drizzle/                # Drizzle schema and migrations

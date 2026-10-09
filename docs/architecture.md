@@ -4,7 +4,7 @@
 
 | Repository | Responsibility |
 |---|---|
-| `smart-factory-iot` | React dashboard, Node/Express tRPC API, PostgreSQL schema, accounts, roles, asset workflows, lifecycle history, demo data, and standards API gateway |
+| `smart-factory-iot-frontend` | React dashboard, Node/Express tRPC API, PostgreSQL schema, accounts, roles, asset workflows, lifecycle history, demo data, and standards API gateway |
 | `smart-factory-iot-backend` | .NET services for identity, telemetry ingestion, MQTT consumption, analytics, notifications, device APIs, and AAS generation/provisioning |
 | `smart-factory-iot-edge` | Raspberry Pi machine gateway and ESP32 WROVER sensor firmware |
 
