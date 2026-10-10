@@ -24,7 +24,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'pnpm dev',
-    url: `http://127.0.0.1:${e2ePort}`,
+    url: `http://127.0.0.1:${e2ePort}/health/ready`,
     reuseExistingServer: false,
     timeout: 180000,
   },

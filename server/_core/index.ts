@@ -91,33 +91,18 @@ async function loginRateLimit(req: express.Request, res: express.Response, next:
 }
 
 async function startServer() {
-  await db.refreshDemoDataSetting().catch((error) =>
-    console.warn("[Bootstrap] Persisted demo-data setting was not loaded:", error instanceof Error ? error.message : "unknown error"));
-  const settingsRefresh = setInterval(() => {
-    void db.refreshDemoDataSetting().catch((error) =>
-      console.warn("[Settings] Demo-data setting refresh failed:", error instanceof Error ? error.message : "unknown error"));
-  }, 5_000);
-  settingsRefresh.unref();
-  if (demoAccountsEnabled()) {
-    await initializeDemoAccounts().catch((error) => console.warn("[Bootstrap] Demo accounts were not initialized:", error));
-  }
-  if ((await db.refreshDemoDataSetting().catch(() => false))) {
-    await db.initializeDemoScenario()
-      .then((result) => console.log(result.seeded
-        ? "[Bootstrap] API demo scenario initialized"
-        : ("addedWindformer" in result && result.addedWindformer)
-          ? "[Bootstrap] Windformer demo asset added without replacing existing records"
-          : "[Bootstrap] Live or demo scenario data already exists"))
-      .catch((error) => console.warn("[Bootstrap] Demo scenario was not initialized:", error));
-  }
-
   const app = express();
   app.disable("x-powered-by");
   configureTrustedProxies(app);
   const server = createServer(app);
+  let bootstrapReady = false;
+  server.on("upgrade", (_request, socket) => {
+    if (!bootstrapReady) socket.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
+  });
 
   app.get("/health/live", (_req, res) => res.status(200).json({ status: "live" }));
   app.get("/health/ready", async (_req, res) => {
+    if (!bootstrapReady) return res.status(503).json({ status: "not-ready", dependency: "startup" });
     try {
       await db.checkDatabaseHealth();
       if (!wsManager.isReady()) return res.status(503).json({ status: "not-ready", dependency: "redis" });
@@ -147,6 +132,11 @@ async function startServer() {
   // The API does not accept bulk file uploads. Keep JSON request bodies bounded.
   app.use(express.json({ limit: "2mb" }));
   app.use(express.urlencoded({ limit: "100kb", extended: true }));
+
+  app.use("/api", (_req, res, next) => {
+    if (!bootstrapReady) return res.status(503).json({ error: "Application startup is in progress" });
+    next();
+  });
 
   // Export only to engineers and admins; the generated file contains the
   // asset hierarchy and identity fields already visible in the dashboard.
@@ -370,18 +360,6 @@ async function startServer() {
     })
   );
 
-  // Initialize WebSocket server
-  await wsManager.initialize(server, "/ws", async (request) => {
-    const origin = request.headers.origin;
-    if (origin && !allowedOrigins.has(origin)) return false;
-    try {
-      await sdk.authenticateRequest(request as express.Request);
-      return true;
-    } catch {
-      return false;
-    }
-  });
-
   // Development mode uses Vite, production mode uses static files
   if (process.env.API_ONLY === "true") {
     app.get("/", (_req, res) => res.json({ service: "smart-factory-api" }));
@@ -390,6 +368,41 @@ async function startServer() {
     await setupVite(app, server);
   } else {
     serveStatic(app);
+  }
+
+  async function initializeRuntime() {
+    await db.refreshDemoDataSetting().catch((error) =>
+      console.warn("[Bootstrap] Persisted demo-data setting was not loaded:", error instanceof Error ? error.message : "unknown error"));
+    const settingsRefresh = setInterval(() => {
+      void db.refreshDemoDataSetting().catch((error) =>
+        console.warn("[Settings] Demo-data setting refresh failed:", error instanceof Error ? error.message : "unknown error"));
+    }, 5_000);
+    settingsRefresh.unref();
+    if (demoAccountsEnabled()) {
+      await initializeDemoAccounts().catch((error) => console.warn("[Bootstrap] Demo accounts were not initialized:", error));
+    }
+    if ((await db.refreshDemoDataSetting().catch(() => false))) {
+      await db.initializeDemoScenario()
+        .then((result) => console.log(result.seeded
+          ? "[Bootstrap] API demo scenario initialized"
+          : ("addedWindformer" in result && result.addedWindformer)
+            ? "[Bootstrap] Windformer demo asset added without replacing existing records"
+            : "[Bootstrap] Live or demo scenario data already exists"))
+        .catch((error) => console.warn("[Bootstrap] Demo scenario was not initialized:", error));
+    }
+
+    await wsManager.initialize(server, "/ws", async (request) => {
+      const origin = request.headers.origin;
+      if (origin && !allowedOrigins.has(origin)) return false;
+      try {
+        await sdk.authenticateRequest(request as express.Request);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+
+    bootstrapReady = true;
   }
 
   /**
@@ -405,6 +418,10 @@ async function startServer() {
       ? 'Render/Production' 
       : `http://localhost:${port}`;
     console.log(`Server running on ${host} (Port: ${port})`);
+    void initializeRuntime().catch(error => {
+      console.error("Runtime initialization failed:", error instanceof Error ? error.message : "unknown error");
+      server.close(() => process.exit(1));
+    });
   });
 
   // Graceful shutdown
