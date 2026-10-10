@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-compose=(docker compose -p smart-factory-iot-e2e -f docker-compose.e2e.yml)
+compose=(docker compose -p "${E2E_COMPOSE_PROJECT:-smart-factory-iot-e2e}" -f docker-compose.e2e.yml)
 mock_aas_pid=""
 cleanup() {
   if [[ -n "$mock_aas_pid" ]]; then
@@ -14,10 +14,10 @@ trap cleanup EXIT
 
 "${compose[@]}" up -d --wait database redis
 
-export DATABASE_URL="postgres://postgres:postgres@127.0.0.1:55432/smart_factory_iot_e2e"
+export DATABASE_URL="postgres://postgres:postgres@127.0.0.1:${E2E_DATABASE_PORT:-55432}/smart_factory_iot_e2e"
 export TEST_DATABASE_URL="$DATABASE_URL"
 export DATABASE_SSL_MODE=disable
-export REDIS_URL=redis://127.0.0.1:56379
+export REDIS_URL=redis://127.0.0.1:${E2E_REDIS_PORT:-56379}
 export TEST_REDIS_URL="$REDIS_URL"
 export VITE_API_URL="http://127.0.0.1:${E2E_PORT:-3000}/api"
 export JWT_SECRET="local-e2e-only-secret-that-is-at-least-32-bytes"

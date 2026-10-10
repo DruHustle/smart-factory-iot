@@ -3,7 +3,7 @@ services:
     image: redis:8.2-alpine
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     ports:
-      - "127.0.0.1:56379:6379"
+      - "127.0.0.1:${E2E_REDIS_PORT:-56379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 2s
@@ -18,7 +18,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "127.0.0.1:55432:5432"
+      - "127.0.0.1:${E2E_DATABASE_PORT:-55432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d smart_factory_iot_e2e"]
       interval: 2s
