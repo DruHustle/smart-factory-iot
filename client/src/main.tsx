@@ -1,3 +1,4 @@
+import { resolveApiBase } from "@/lib/api-base";
 import { trpc } from "@/lib/trpc";
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink } from "@trpc/client";
@@ -38,14 +39,7 @@ const queryClient = new QueryClient({
   mutationCache: new MutationCache({ onError: handleProtectedRequestError }),
 });
 
-const getTRPCUrl = () => {
-  const apiUrl = import.meta.env.VITE_API_URL;
-  if (apiUrl) {
-    return `${apiUrl}/trpc`;
-  }
-  // Fallback for relative paths
-  return "/api/trpc";
-};
+const getTRPCUrl = () => `${resolveApiBase(import.meta.env.VITE_API_URL, import.meta.env.PROD)}/trpc`;
 
 const trpcClient = trpc.createClient({
   links: [

@@ -1,3 +1,4 @@
+import { resolveApiBase } from "./api-base";
 /**
  * tRPC Authentication Service
  *
@@ -18,7 +19,7 @@ export interface AuthResponse {
 }
 
 // Keep the browser session cookie on the same host as the dashboard by default.
-const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
+const API_BASE_URL = resolveApiBase(import.meta.env.VITE_API_URL, import.meta.env.PROD);
 
 function getTRPCUrl() {
   return `${API_BASE_URL}/trpc`;
